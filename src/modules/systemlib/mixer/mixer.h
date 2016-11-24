@@ -177,6 +177,13 @@ public:
 	virtual unsigned		mix(float *outputs, unsigned space, uint16_t *status_reg) = 0;
 
 	/**
+	 * Get the saturation status.
+	 *
+	 * @return			Integer bitmask containing saturation_status from multirotor_motor_limits.msg .
+	 */
+	virtual uint16_t		get_saturation_status(void) = 0;
+
+	/**
 	 * Analyses the mix configuration and updates a bitmask of groups
 	 * that are required.
 	 *
@@ -260,6 +267,7 @@ public:
 	~MixerGroup();
 
 	virtual unsigned		mix(float *outputs, unsigned space, uint16_t *status_reg);
+	virtual uint16_t		get_saturation_status(void);
 	virtual void			groups_required(uint32_t &groups);
 
 	/**
@@ -368,6 +376,7 @@ public:
 	static NullMixer		*from_text(const char *buf, unsigned &buflen);
 
 	virtual unsigned		mix(float *outputs, unsigned space, uint16_t *status_reg);
+	virtual uint16_t		get_saturation_status(void);
 	virtual void			groups_required(uint32_t &groups);
 };
 
@@ -433,6 +442,7 @@ public:
 			uint16_t max);
 
 	virtual unsigned		mix(float *outputs, unsigned space, uint16_t *status_reg);
+	virtual uint16_t		get_saturation_status(void);
 	virtual void			groups_required(uint32_t &groups);
 
 	/**
@@ -537,6 +547,7 @@ public:
 			unsigned &buflen);
 
 	virtual unsigned		mix(float *outputs, unsigned space, uint16_t *status_reg);
+	virtual uint16_t		get_saturation_status(void);
 	virtual void			groups_required(uint32_t &groups);
 
 	/**

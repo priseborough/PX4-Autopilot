@@ -112,6 +112,13 @@ MixerGroup::mix(float *outputs, unsigned space, uint16_t *status_reg)
 	return index;
 }
 
+uint16_t
+MixerGroup::get_saturation_status()
+{
+	Mixer	*mixer = _first;
+	return mixer->get_saturation_status();
+}
+
 unsigned
 MixerGroup::count()
 {

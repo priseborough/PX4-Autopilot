@@ -506,3 +506,6 @@ MultirotorMixer::groups_required(uint32_t &groups)
 	groups |= (1 << 0);
 }
 
+uint16_t MultirotorMixer::get_saturation_status() {
+	return _saturation_status.value;
+}

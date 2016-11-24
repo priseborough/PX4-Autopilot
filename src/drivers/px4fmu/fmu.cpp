@@ -86,7 +86,7 @@
 #include <uORB/topics/parameter_update.h>
 #include <uORB/topics/safety.h>
 #include <uORB/topics/adc_report.h>
-
+#include <uORB/topics/multirotor_motor_limits.h>
 
 #ifdef HRT_PPM_CHANNEL
 # include <systemlib/ppm_decode.h>
@@ -226,6 +226,7 @@ private:
 	bool		_safety_off;
 	bool		_safety_disabled;
 	orb_advert_t		_to_safety;
+	orb_advert_t      _to_mixer_status; 	///< mixer status flags
 
 	float _mot_t_max;	// maximum rise time for motor (slew rate limiting)
 
@@ -337,6 +338,7 @@ PX4FMU::PX4FMU() :
 	_safety_off(false),
 	_safety_disabled(false),
 	_to_safety(nullptr),
+	_to_mixer_status(nullptr),
 	_mot_t_max(0.0f)
 {
 	for (unsigned i = 0; i < _max_actuators; i++) {
@@ -1103,6 +1105,17 @@ PX4FMU::cycle()
 			/* do mixing */
 			float outputs[_max_actuators];
 			num_outputs = _mixers->mix(outputs, num_outputs, NULL);
+
+			/* publish mixer status */
+			multirotor_motor_limits_s multirotor_motor_limits = {};
+			multirotor_motor_limits.saturation_status = _mixers->get_saturation_status();
+			if (_to_mixer_status == nullptr) {
+				_to_mixer_status = orb_advertise(ORB_ID(multirotor_motor_limits), &multirotor_motor_limits);
+
+			} else {
+				orb_publish(ORB_ID(multirotor_motor_limits), _to_mixer_status, &multirotor_motor_limits);
+
+			}
 
 			/* disable unused ports by setting their output to NaN */
 			for (size_t i = 0; i < sizeof(outputs) / sizeof(outputs[0]); i++) {

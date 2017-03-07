@@ -169,3 +169,16 @@ PARAM_DEFINE_INT32(CBRK_BUZZER, 0);
  * @group Circuit Breaker
  */
 PARAM_DEFINE_INT32(CBRK_USB_CHK, 0);
+
+/**
+ * Circuit breaker for preflight EKF checks
+ *
+ * Setting this parameter to 193005 will disable the preflight EKF checks.
+ * WARNING: ENABLING THIS CIRCUIT BREAKER IS AT OWN RISK
+ *
+ * @reboot_required true
+ * @min 0
+ * @max 193005
+ * @group Circuit Breaker
+ */
+PARAM_DEFINE_INT32(CBRK_EKF_PREFLT, 0);

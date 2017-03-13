@@ -1023,7 +1023,8 @@ int preflight_check(struct vehicle_status_s *status, orb_advert_t *mavlink_log_p
 
 	bool preflight_ok = Commander::preflightCheck(mavlink_log_pub, true, true, true, true,
 			    checkAirspeed, (status->rc_input_mode == vehicle_status_s::RC_IN_MODE_DEFAULT),
-			    !can_arm_without_gps, true, status->is_vtol, reportFailures, prearm, time_since_boot);
+			    !can_arm_without_gps, !status_flags->circuit_breaker_engaged_ekf_preflt_check,
+			    true, status->is_vtol, reportFailures, prearm, time_since_boot);
 
 	if (!status_flags->circuit_breaker_engaged_usb_check && status_flags->usb_connected && prearm) {
 		preflight_ok = false;

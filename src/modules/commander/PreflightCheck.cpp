@@ -524,7 +524,7 @@ out:
 }
 
 bool preflightCheck(orb_advert_t *mavlink_log_pub, bool checkMag, bool checkAcc, bool checkGyro,
-		    bool checkBaro, bool checkAirspeed, bool checkRC, bool checkGNSS,
+		    bool checkBaro, bool checkAirspeed, bool checkRC, bool checkGNSS, bool checkEKF,
 		    bool checkDynamic, bool isVTOL, bool reportFailures, bool prearm, hrt_abstime time_since_boot)
 {
 
@@ -688,10 +688,10 @@ bool preflightCheck(orb_advert_t *mavlink_log_pub, bool checkMag, bool checkAcc,
 	}
 
 	/* ---- Navigation EKF ---- */
-	// only check EKF2 data if EKF2 is selected as the estimator and GNSS checking is enabled
+	// only check EKF2 data if EKF2 is selected as the estimator and EKF preflight checking is enabled
 	int32_t estimator_type;
 	param_get(param_find("SYS_MC_EST_GROUP"), &estimator_type);
-	if (estimator_type == 2 && checkGNSS) {
+	if (estimator_type == 2 && checkEKF) {
 		if (!ekf2Check(mavlink_log_pub, true, reportFailures)) {
 			failed = true;
 		}

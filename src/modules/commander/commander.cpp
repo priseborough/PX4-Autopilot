@@ -1423,6 +1423,7 @@ int commander_thread_main(int argc, char *argv[])
 	status_flags.circuit_breaker_engaged_airspd_check = false;
 	status_flags.circuit_breaker_engaged_enginefailure_check = false;
 	status_flags.circuit_breaker_engaged_gpsfailure_check = false;
+	status_flags.circuit_breaker_engaged_ekf_preflt_check = false;
 	get_circuit_breaker_params();
 
 	// initialize gps failure to false if circuit breaker enabled
@@ -1669,7 +1670,9 @@ int commander_thread_main(int argc, char *argv[])
 	} else {
 			// sensor diagnostics done continuously, not just at boot so don't warn about any issues just yet
 			status_flags.condition_system_sensors_initialized = Commander::preflightCheck(&mavlink_log_pub, true, true, true, true,
-				checkAirspeed, (status.rc_input_mode == vehicle_status_s::RC_IN_MODE_DEFAULT), !status_flags.circuit_breaker_engaged_gpsfailure_check,
+				checkAirspeed, (status.rc_input_mode == vehicle_status_s::RC_IN_MODE_DEFAULT),
+				!status_flags.circuit_breaker_engaged_gpsfailure_check,
+				!status_flags.circuit_breaker_engaged_ekf_preflt_check,
 				/* checkDynamic */ false, is_vtol(&status), /* reportFailures */ false, /* prearm */ false, hrt_elapsed_time(&commander_boot_timestamp));
 			set_tune_override(TONE_STARTUP_TUNE); //normal boot tune
 	}
@@ -1922,12 +1925,13 @@ int commander_thread_main(int argc, char *argv[])
 					if (is_hil_setup(autostart_id)) {
 						/* HIL configuration: check only RC input */
 						(void)Commander::preflightCheck(&mavlink_log_pub, false, false, false, false, false,
-								(status.rc_input_mode == vehicle_status_s::RC_IN_MODE_DEFAULT), false,
+								(status.rc_input_mode == vehicle_status_s::RC_IN_MODE_DEFAULT), false, false,
 								 /* checkDynamic */ true, is_vtol(&status), /* reportFailures */ false, /* prearm */ false, hrt_elapsed_time(&commander_boot_timestamp));
 					} else {
 						/* check sensors also */
 						(void)Commander::preflightCheck(&mavlink_log_pub, true, true, true, true, checkAirspeed,
 								(status.rc_input_mode == vehicle_status_s::RC_IN_MODE_DEFAULT), !can_arm_without_gps,
+								!status_flags.circuit_breaker_engaged_ekf_preflt_check,
 								 /* checkDynamic */ true, is_vtol(&status), /* reportFailures */ hotplug_timeout, /* prearm */ false, hrt_elapsed_time(&commander_boot_timestamp));
 					}
 				}
@@ -3195,6 +3199,7 @@ get_circuit_breaker_params()
 	status_flags.circuit_breaker_engaged_airspd_check = circuit_breaker_enabled("CBRK_AIRSPD_CHK", CBRK_AIRSPD_CHK_KEY);
 	status_flags.circuit_breaker_engaged_enginefailure_check = circuit_breaker_enabled("CBRK_ENGINEFAIL", CBRK_ENGINEFAIL_KEY);
 	status_flags.circuit_breaker_engaged_gpsfailure_check = circuit_breaker_enabled("CBRK_GPSFAIL", CBRK_GPSFAIL_KEY);
+	status_flags.circuit_breaker_engaged_ekf_preflt_check = circuit_breaker_enabled("CBRK_EKF_PREFLT", CBRK_EKF_PREFLT_KEY);
 	status_flags.circuit_breaker_flight_termination_disabled = circuit_breaker_enabled("CBRK_FLIGHTTERM", CBRK_FLIGHTTERM_KEY);
 }
 
@@ -4188,6 +4193,7 @@ void *commander_low_prio_loop(void *arg)
 
 						status_flags.condition_system_sensors_initialized = Commander::preflightCheck(&mavlink_log_pub, true, true, true, true, checkAirspeed,
 							!(status.rc_input_mode >= vehicle_status_s::RC_IN_MODE_OFF), !can_arm_without_gps,
+							!status_flags.circuit_breaker_engaged_ekf_preflt_check,
 							/* checkDynamic */ true, is_vtol(&status), /* reportFailures */ hotplug_timeout, /* prearm */ false, hrt_elapsed_time(&commander_boot_timestamp));
 
 						arming_state_transition(&status,

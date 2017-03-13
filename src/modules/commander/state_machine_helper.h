@@ -88,6 +88,7 @@ struct status_flags_s {
     bool circuit_breaker_engaged_gpsfailure_check;
     bool circuit_breaker_flight_termination_disabled;
     bool circuit_breaker_engaged_usb_check;
+    bool circuit_breaker_engaged_ekf_preflt_check;	// true if the preflight checks of EKF innovations and sensor bias estimates have passed checks
     bool offboard_control_signal_found_once;
     bool offboard_control_signal_lost;
     bool offboard_control_signal_weak;

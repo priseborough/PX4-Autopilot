@@ -70,7 +70,8 @@ namespace Commander
 **/
 bool preflightCheck(orb_advert_t *mavlink_log_pub, bool checkMag, bool checkAcc,
     bool checkGyro, bool checkBaro, bool checkAirspeed, bool checkRC, bool checkGNSS,
-    bool checkDynamic, bool isVTOL, bool reportFailures, bool prearm, hrt_abstime time_since_boot);
+    bool checkEKF, bool checkDynamic, bool isVTOL, bool reportFailures, bool prearm,
+    hrt_abstime time_since_boot);
 
 const unsigned max_mandatory_gyro_count = 1;
 const unsigned max_optional_gyro_count = 3;

@@ -947,7 +947,7 @@ void Ekf2::task_main()
 						&status.hgt_test_ratio, &status.tas_test_ratio,
 						&status.hagl_test_ratio);
 		bool dead_reckoning;
-		_ekf.get_ekf_accuracy(&status.pos_horiz_accuracy, &status.pos_vert_accuracy, &dead_reckoning);
+		_ekf.get_ekf_lpos_accuracy(&status.pos_horiz_accuracy, &status.pos_vert_accuracy, &dead_reckoning);
 		_ekf.get_ekf_soln_status(&status.solution_status_flags);
 		_ekf.get_imu_vibe_metrics(status.vibe);
 
@@ -984,6 +984,7 @@ void Ekf2::task_main()
 			_ekf.get_beta_innov(&innovations.beta_innov);
 			_ekf.get_flow_innov(&innovations.flow_innov[0]);
 			_ekf.get_hagl_innov(&innovations.hagl_innov);
+			_ekf.get_drag_innov(&innovations.drag_innov[0]);
 
 			_ekf.get_vel_pos_innov_var(&innovations.vel_pos_innov_var[0]);
 			_ekf.get_mag_innov_var(&innovations.mag_innov_var[0]);
@@ -992,6 +993,7 @@ void Ekf2::task_main()
 			_ekf.get_beta_innov_var(&innovations.beta_innov_var);
 			_ekf.get_flow_innov_var(&innovations.flow_innov_var[0]);
 			_ekf.get_hagl_innov_var(&innovations.hagl_innov_var);
+			_ekf.get_drag_innov_var(&innovations.drag_innov_var[0]);
 
 			_ekf.get_output_tracking_error(&innovations.output_tracking_error[0]);
 

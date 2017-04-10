@@ -285,6 +285,11 @@ private:
 	// airspeed mode parameter
 	control::BlockParamInt _airspeed_mode;
 
+	// Multi-rotor drag specific force fusion
+	control::BlockParamExtFloat _drag_noise;	// observation noise for drag specific force measurements (m/sec**2)
+	control::BlockParamExtFloat _bcoef_x;		// ballistic coefficient along the X-axis (kg/m**2)
+	control::BlockParamExtFloat _bcoef_y;		// ballistic coefficient along the Y-axis (kg/m**2)
+
 	int update_subscriptions();
 
 };
@@ -386,7 +391,11 @@ Ekf2::Ekf2():
 	_gyr_bias_init(this, "EKF2_GBIAS_INIT", false, _params->switch_on_gyro_bias),
 	_acc_bias_init(this, "EKF2_ABIAS_INIT", false, _params->switch_on_accel_bias),
 	_ang_err_init(this, "EKF2_ANGERR_INIT", false, _params->initial_tilt_err),
-	_airspeed_mode(this, "FW_ARSP_MODE", false)
+	_airspeed_mode(this, "FW_ARSP_MODE", false),
+	_drag_noise(this, "EKF2_DRAG_NOISE", false, _params->drag_noise),
+	_bcoef_x(this, "EKF2_BCOEF_X", false, _params->bcoef_x),
+	_bcoef_y(this, "EKF2_BCOEF_Y", false, _params->bcoef_y)
+
 {
 
 }

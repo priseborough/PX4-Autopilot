@@ -906,3 +906,27 @@ PARAM_DEFINE_FLOAT(EKF2_ANGERR_INIT, 0.1f);
  * @decimal 3
  */
 PARAM_DEFINE_FLOAT(EKF2_RNG_PITCH, 0.0f);
+
+/**
+ * Gate size for IMU accel clip detector.
+ * Controls the sensitivity of the test used to check for the effect of vibration induced IMU accelerometer clipping on the vertical velocity and position innovations.
+ * Larger values make the test less sensitive.
+ *
+ * @group EKF2
+ * @min 1.0
+ * @max 10.0
+ * @unit SD
+ * @decimal 1
+ */
+PARAM_DEFINE_FLOAT(EKF2_CLIP_GATE, 4.5f);
+
+/**
+ * IMU accel clip detection delay.
+ * Controls the time delay in usec from when the effects of clipping are detected to when the vertical state estimates are reset
+ *
+ * @group EKF2
+ * @min 0
+ * @max 1000000
+ * @unit usec
+ */
+PARAM_DEFINE_INT32(EKF2_CLIP_DELAY, 500000);

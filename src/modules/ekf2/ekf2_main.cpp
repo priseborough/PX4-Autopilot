@@ -280,10 +280,14 @@ private:
 	// IMU switch on bias paameters
 	control::BlockParamExtFloat _gyr_bias_init;	// 1-sigma gyro bias uncertainty at switch-on (rad/sec)
 	control::BlockParamExtFloat _acc_bias_init;	// 1-sigma accelerometer bias uncertainty at switch-on (m/s**2)
-	control::BlockParamExtFloat _ang_err_init;		// 1-sigma uncertainty in tilt angle after gravity vector alignment (rad)
+	control::BlockParamExtFloat _ang_err_init;	// 1-sigma uncertainty in tilt angle after gravity vector alignment (rad)
 
 	// airspeed mode parameter
 	control::BlockParamInt _airspeed_mode;
+
+	// Accel clipping test
+	control::BlockParamExtFloat _vert_innov_test_lim;	// Test standard deviation threshold (SD)
+	control::BlockParamExtInt _bad_acc_reset_delay_us;	// Delay from test failure to state reset (usec)
 
 	int update_subscriptions();
 
@@ -386,7 +390,10 @@ Ekf2::Ekf2():
 	_gyr_bias_init(this, "EKF2_GBIAS_INIT", false, _params->switch_on_gyro_bias),
 	_acc_bias_init(this, "EKF2_ABIAS_INIT", false, _params->switch_on_accel_bias),
 	_ang_err_init(this, "EKF2_ANGERR_INIT", false, _params->initial_tilt_err),
-	_airspeed_mode(this, "FW_ARSP_MODE", false)
+	_airspeed_mode(this, "FW_ARSP_MODE", false),
+	_vert_innov_test_lim(this, "EKF2_CLIP_GATE", false, _params->vert_innov_test_lim),
+	_bad_acc_reset_delay_us(this, "EKF2_CLIP_DELAY", false, _params->bad_acc_reset_delay_us)
+
 {
 
 }

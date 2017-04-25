@@ -83,4 +83,5 @@ uint16 solution_status_flags # Bitmask indicating which filter kinematic state o
 # 8 - True if the EKF has sufficient data to enter a mode that will provide a (relative) position estimate
 # 9 - True if the EKF has sufficient data to enter a mode that will provide a (absolute) position estimate
 # 10 - True if the EKF has detected a GPS glitch
+# 11 - True if the EKF has detected the effects of IMU accelerometer vibration clipping on vertical accuracy
 

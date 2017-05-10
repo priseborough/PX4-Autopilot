@@ -447,7 +447,7 @@ PARAM_DEFINE_INT32(EKF2_DECL_TYPE, 7);
  * Type of magnetometer fusion
  *
  * Integer controlling the type of magnetometer fusion used - magnetic heading or 3-axis magnetometer.
- * If set to automatic: heading fusion on-ground and 3-axis fusion in-flight
+ * If set to automatic it uses heading fusion on-ground and 3-axis fusion in-flight when movement is detected. Movement detection is controlled by EKF2_MAG_ALIM.
  *
  * @group EKF2
  * @value 0 Automatic
@@ -456,6 +456,17 @@ PARAM_DEFINE_INT32(EKF2_DECL_TYPE, 7);
  * @value 3 None
  */
 PARAM_DEFINE_INT32(EKF2_MAG_TYPE, 0);
+
+/**
+ * Horizontal acceleration threshold used by automatic selection of magnetometer fusion method.
+ * This parameter is used when the magnetometer fusion method is set automatically (EKF2_MAG_TYPE = 0). If the filtered horizontal acceleration is less than this parameter value for more than 10 seconds, then the EKF will switch back to magentic heading fusion. This prevents drift in magentic field states that can occur over long periods without the movement required to make the yaw error observable.
+ *
+ * @group EKF2
+ * @min 0.0
+ * @max 5.0
+ * @decimal 2
+ */
+PARAM_DEFINE_FLOAT(EKF2_MAG_ALIM, 0.5f);
 
 /**
  * Gate size for barometric height fusion
@@ -514,7 +525,7 @@ PARAM_DEFINE_INT32(EKF2_REC_RPL, 0);
  * Set bits in the following positions to enable:
  * 0 : Set to true to use GPS data if available
  * 1 : Set to true to use optical flow data if available
- * 2 : Set to true to inhibit IMU bias estimation
+ * 2 : Set to true to inhibit IMU delta velocity bias estimation. Individual axes can be controlled by the EKF2_DVBIAS_MASK parameter.
  * 3 : Set to true to enable vision position fusion
  * 4 : Set to true to enable vision yaw fusion
  *
@@ -528,6 +539,23 @@ PARAM_DEFINE_INT32(EKF2_REC_RPL, 0);
  * @bit 4 vision yaw fusion
  */
 PARAM_DEFINE_INT32(EKF2_AID_MASK, 1);
+
+/**
+ * Integer bitmask controlling which IMU axis has the delta velocity bias learned. No bias learning will occur if bit position 2 of EKF2_AID_MASK is true.
+ *
+ * Set bits in the following positions to enable:
+ * 0 : Set to true to learn IMU X axis delta velocity bias
+ * 1 : Set to true to learn IMU Y axis delta velocity bias
+ * 2 : Set to true to learn IMU Z axis delta velocity bias
+ *
+ * @group EKF2
+ * @min 0
+ * @max 7
+ * @bit 0 X-axis
+ * @bit 1 Y-axis
+ * @bit 2 Z-axis
+ */
+PARAM_DEFINE_INT32(EKF2_DVBIAS_MASK, 4);
 
 /**
  * Determines the primary source of height data used by the EKF.

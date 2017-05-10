@@ -213,6 +213,7 @@ private:
 	control::BlockParamExtFloat _vel_innov_gate;	// innovation gate for GPS velocity innovation test (std dev)
 	control::BlockParamExtFloat _tas_innov_gate;	// innovation gate for tas innovation test (std dev)
 
+	// magnetometer fusion control
 	control::BlockParamExtFloat _mag_heading_noise;	// measurement noise used for simple heading fusion
 	control::BlockParamExtFloat _mag_noise;		// measurement noise used for 3-axis magnetoemter fusion (Gauss)
 	control::BlockParamExtFloat _eas_noise;		// measurement noise used for airspeed fusion (std m/s)
@@ -220,9 +221,9 @@ private:
 	control::BlockParamExtFloat _mag_declination_deg;// magnetic declination in degrees
 	control::BlockParamExtFloat _heading_innov_gate;// innovation gate for heading innovation test
 	control::BlockParamExtFloat _mag_innov_gate;	// innovation gate for magnetometer innovation test
-	control::BlockParamExtInt
-	_mag_decl_source;       // bitmasked integer used to control the handling of magnetic declination
-	control::BlockParamExtInt _mag_fuse_type;         // integer ued to control the type of magnetometer fusion used
+	control::BlockParamExtInt _mag_decl_source;	// bitmasked integer used to control the handling of magnetic declination
+	control::BlockParamExtInt _mag_fuse_type;	// integer used to select the magnetometer fusion method
+	control::BlockParamExtFloat _mag_acc_gate;	// manoeuvre threshold for use of 3-axis fusion (m/s**2)
 
 	control::BlockParamExtInt _gps_check_mask;	// bitmasked integer used to activate the different GPS quality checks
 	control::BlockParamExtFloat _requiredEph;	// maximum acceptable horiz position error (m)
@@ -293,6 +294,13 @@ private:
 	// airspeed mode parameter
 	control::BlockParamInt _airspeed_mode;
 
+	// EKF accel bias learning control
+	control::BlockParamExtFloat _acc_bias_lim;
+	control::BlockParamExtFloat _acc_bias_learn_acc_lim;
+	control::BlockParamExtFloat _acc_bias_learn_gyr_lim;
+	control::BlockParamExtFloat _acc_bias_learn_tc;
+	control::BlockParamExtInt _acc_bias_learn_mask;
+
 	// EKF saved XYZ magnetometer bias values
 	control::BlockParamFloat _mag_bias_x; // X bias (mGauss)
 	control::BlockParamFloat _mag_bias_y; // Y bias (mGauss)
@@ -358,6 +366,7 @@ Ekf2::Ekf2():
 	_mag_innov_gate(this, "EKF2_MAG_GATE", false, _params->mag_innov_gate),
 	_mag_decl_source(this, "EKF2_DECL_TYPE", false, _params->mag_declination_source),
 	_mag_fuse_type(this, "EKF2_MAG_TYPE", false, _params->mag_fusion_type),
+	_mag_acc_gate(this, "EKF2_MAG_ALIM", false, _params->mag_acc_gate),
 	_gps_check_mask(this, "EKF2_GPS_CHECK", false, _params->gps_check_mask),
 	_requiredEph(this, "EKF2_REQ_EPH", false, _params->req_hacc),
 	_requiredEpv(this, "EKF2_REQ_EPV", false, _params->req_vacc),
@@ -404,6 +413,11 @@ Ekf2::Ekf2():
 	_acc_bias_init(this, "EKF2_ABIAS_INIT", false, _params->switch_on_accel_bias),
 	_ang_err_init(this, "EKF2_ANGERR_INIT", false, _params->initial_tilt_err),
 	_airspeed_mode(this, "FW_ARSP_MODE", false),
+	_acc_bias_lim(this, "EKF2_ABL_LIM", false, _params->acc_bias_lim),
+	_acc_bias_learn_acc_lim(this, "EKF2_ABL_ACCLIM", false, _params->acc_bias_learn_acc_lim),
+	_acc_bias_learn_gyr_lim(this, "EKF2_ABL_GYRLIM", false, _params->acc_bias_learn_gyr_lim),
+	_acc_bias_learn_tc(this, "EKF2_ABL_TAU", false, _params->acc_bias_learn_tc),
+	_acc_bias_learn_mask(this, "EKF2_DVBIAS_MASK", false, _params->acc_bias_learn_mask),
 	_mag_bias_x(this, "EKF2_MAGBIAS_X", false),
 	_mag_bias_y(this, "EKF2_MAGBIAS_Y", false),
 	_mag_bias_z(this, "EKF2_MAGBIAS_Z", false),

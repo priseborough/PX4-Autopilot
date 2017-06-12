@@ -519,9 +519,33 @@ PARAM_DEFINE_FLOAT(EKF2_MAG_ACCLIM, 0.5f);
 PARAM_DEFINE_FLOAT(EKF2_MAG_YAWLIM, 0.25f);
 
 /**
- * Gate size for barometric and GPS height fusion
+ * Set to 1 or 2 when the earth magnetic field qulaity is too poor to obtain a reliable heading.
+ * If this option is selected, then the vehicle must be in alignment with the yaw angle specified by EKF2_MAG_YAWGND when power is applied and must not be rotated in yaw when on the ground.
+ * When flying without use of magnetic heading, the EKF relies on regular horizontal velocity changes to correct the buildup of yaw angle error due to gyro drift.
+ * Prolonged hovering or straight and level flight longer than one minute in duration should be avoided. Higher gyro drift due to temperature change sensitivity may require more frequent maneouvres.
  *
- * Sets the number of standard deviations used by the innovation consistency test.
+ * @group EKF2
+ * @value 0 Normal operation
+ * @value 1 yaw = EKF2_MAG_YAWGND when on the ground and 3-axis mag fusion in the air.
+ * @value 2 Yaw = EKF2_MAG_YAWGND when on the ground and no heading or mag fusion in air.
+ * @reboot_required true
+ */
+PARAM_DEFINE_INT32(EKF2_MAGEF_BAD, 0);
+
+/**
+ * This yaw angle will be used for alignment and fusion when on the ground if EKF2_MAG_FVERT = 1 or 2
+ *
+ * @group EKF2
+ * @min 0.0
+ * @max 360
+ * @unit deg
+ * @decimal 1
+ * @reboot_required true
+ */
+PARAM_DEFINE_FLOAT(EKF2_MAG_YAWGND, 0.0f);
+
+/**
+ * Gate size for barometric height fusion
  *
  * @group EKF2
  * @min 1.0

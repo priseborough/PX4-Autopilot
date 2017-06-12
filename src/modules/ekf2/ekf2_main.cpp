@@ -272,6 +272,10 @@ private:
 		_mag_acc_gate,	///< integer used to specify the type of magnetometer fusion used
 		(ParamExtFloat<px4::params::EKF2_MAG_YAWLIM>)
 		_mag_yaw_rate_gate,	///< yaw rate threshold used by mode select logic (rad/sec)
+		(ParamExtInt<px4::params::EKF2_MAGEF_BAD>)
+		_mag_field_vertical,	///< selects how to fuse mag when the field is close to vertical
+		(ParamExtFloat<px4::params::EKF2_MAG_YAWGND>)
+		_mag_yaw_ground,	///< yaw angle that will be used for alignment and fusion when on the ground if EKF2_MAG_FVERT = 1 or 2 (deg)
 
 		(ParamExtInt<px4::params::EKF2_GPS_CHECK>)
 		_gps_check_mask,	///< bitmask used to control which GPS quality checks are used
@@ -445,6 +449,8 @@ Ekf2::Ekf2():
 	_mag_fuse_type(_params->mag_fusion_type),
 	_mag_acc_gate(_params->mag_acc_gate),
 	_mag_yaw_rate_gate(_params->mag_yaw_rate_gate),
+	_mag_field_vertical(_params->mag_earth_field_bad),
+	_mag_yaw_ground(_params->mag_yaw_ground),
 	_gps_check_mask(_params->gps_check_mask),
 	_requiredEph(_params->req_hacc),
 	_requiredEpv(_params->req_vacc),

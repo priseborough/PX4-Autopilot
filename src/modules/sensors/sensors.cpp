@@ -84,6 +84,8 @@
 #include <uORB/topics/differential_pressure.h>
 #include <uORB/topics/airspeed.h>
 #include <uORB/topics/sensor_preflight.h>
+#include <uORB/topics/vehicle_local_position.h>
+#include <uORB/topics/wind_estimate.h>
 
 #include <DevMgr.hpp>
 
@@ -93,6 +95,7 @@
 
 using namespace DriverFramework;
 using namespace sensors;
+using matrix::Vector3f;
 
 /**
  * Analog layout:
@@ -166,6 +169,9 @@ private:
 	int		_diff_pres_sub;			/**< raw differential pressure subscription */
 	int		_vcontrol_mode_sub;		/**< vehicle control mode subscription */
 	int 		_params_sub;			/**< notification of parameter updates */
+	int		_local_position_sub;		/**< vehicle local position and velocity subscription used for air data estimation */
+	int		_wind_sub;			/**< wind velocity subscription used for air data estimation */
+
 
 	orb_advert_t	_sensor_pub;			/**< combined sensor data topic */
 	orb_advert_t	_battery_pub[BOARD_NUMBER_BRICKS] = {nullptr};			/**< battery status */
@@ -182,9 +188,25 @@ private:
 
 	DataValidator	_airspeed_validator;		/**< data validator to monitor airspeed */
 
+	struct air_data {
+		float EAS_ms;		// Equivalent airpeed (m/s)
+		float EAS_accuracy_ms;	// Equivalent airpeed 1-Sigma accuracy (m/s)
+		float TAS_ms;		// True airpeed (m/s)
+		float TAS_accuracy_ms;	// True airpeed 1-Sigma accuracy (m/s)
+		float AoA_rad;		// Angle of attack (rad)
+		float AoA_accuracy_rad;	// Angle of attack 1-Sigma accuracy (rad)
+		float AoS_rad;		// Angle of sideslip (rad)
+		float AoS_accuracy_rad;	// Angle of sideslip 1-Sigma accuracy (rad)
+		bool valid;		// true when the estimate is valid
+	};
+
+	struct air_data _air_data_estimates; // Estimated air data after consolidation
+	struct wind_estimate_s _wind_estimate;
+
 	struct battery_status_s _battery_status[BOARD_NUMBER_BRICKS];	/**< battery status */
 	struct differential_pressure_s _diff_pres;
 	struct airspeed_s _airspeed;
+
 
 	Battery		_battery[BOARD_NUMBER_BRICKS];			/**< Helper lib to publish battery_status topic. */
 
@@ -212,6 +234,11 @@ private:
 	 *				data should be returned.
 	 */
 	void		diff_pres_poll(struct sensor_combined_s &raw);
+
+	/**
+	 * Update the estimated air data quantities.
+	 */
+	void		update_estimated_airdata();
 
 	/**
 	 * Check for changes in vehicle control mode.
@@ -242,6 +269,8 @@ Sensors::Sensors(bool hil_enabled) :
 	_diff_pres_sub(-1),
 	_vcontrol_mode_sub(-1),
 	_params_sub(-1),
+	_local_position_sub(-1),
+	_wind_sub(-1),
 
 	/* publications */
 	_sensor_pub(nullptr),
@@ -257,6 +286,8 @@ Sensors::Sensors(bool hil_enabled) :
 {
 	memset(&_diff_pres, 0, sizeof(_diff_pres));
 	memset(&_parameters, 0, sizeof(_parameters));
+	memset(&_air_data_estimates, 0, sizeof(_air_data_estimates));
+	memset(&_wind_estimate, 0, sizeof(_wind_estimate));
 
 	initialize_parameter_handles(_parameter_handles);
 
@@ -360,6 +391,51 @@ Sensors::diff_pres_poll(struct sensor_combined_s &raw)
 
 		int instance;
 		orb_publish_auto(ORB_ID(airspeed), &_airspeed_pub, &_airspeed, &instance, ORB_PRIO_DEFAULT);
+	}
+}
+
+void
+Sensors::update_estimated_airdata()
+{
+	bool updated;
+	orb_check(_local_position_sub, &updated);
+
+	if (updated) {
+		struct vehicle_local_position_s local_position_data;
+		orb_copy(ORB_ID(vehicle_local_position), _local_position_sub, &local_position_data);
+
+		if (local_position_data.v_xy_valid && local_position_data.v_z_valid) {
+
+			orb_copy(ORB_ID(wind_estimate), _wind_sub, &_wind_estimate);
+
+			Vector3f earth_velocity = Vector3f(local_position_data.vx , local_position_data.vy , local_position_data.vz);
+			float ground_speed = earth_velocity.norm();
+			bool wind_estimate_available = (_wind_estimate.variance_north > 0.0f) && (_wind_estimate.variance_east > 0.0f);
+			bool wind_estimate_too_uncertain = (sqrtf(_wind_estimate.variance_north) < 0.5f * ground_speed) || (sqrtf(_wind_estimate.variance_east) > 0.5f * ground_speed);
+
+			if (wind_estimate_available && !wind_estimate_too_uncertain) {
+				_air_data_estimates.valid = true;
+
+				// calculate true airspeed estimate
+				Vector3f rel_vel = Vector3f((local_position_data.vx - _wind_estimate.windspeed_north) , (local_position_data.vy - _wind_estimate.windspeed_east) , local_position_data.vz);
+				_air_data_estimates.TAS_ms = rel_vel.norm();
+				_air_data_estimates.TAS_accuracy_ms = sqrtf(_wind_estimate.variance_north + _wind_estimate.variance_east + 2.0f * local_position_data.evh + local_position_data.evv);
+
+				/*
+				 *  TODO calculate AoA and AoS estimates
+				 * 1) rotate relative velocity into body frame
+				 * 2) AoA = asin(vbody_z / magnitude(vbody))
+				 * 3) AoS = atan2f(vbody_y , v_body_x)
+				 *
+				 * Need to derive angle error as a function of the vehicle and wind velocity error
+				*/
+
+
+			} else {
+				_air_data_estimates.valid = false;
+
+			}
+		}
 	}
 }
 
@@ -590,6 +666,10 @@ Sensors::run()
 	 */
 	_diff_pres_sub = orb_subscribe(ORB_ID(differential_pressure));
 
+	_local_position_sub = orb_subscribe(ORB_ID(vehicle_local_position));
+
+	_wind_sub = orb_subscribe(ORB_ID(wind_estimate));
+
 	_vcontrol_mode_sub = orb_subscribe(ORB_ID(vehicle_control_mode));
 
 	_params_sub = orb_subscribe(ORB_ID(parameter_update));
@@ -711,6 +791,8 @@ Sensors::run()
 	orb_unsubscribe(_params_sub);
 	orb_unsubscribe(_actuator_ctrl_0_sub);
 	orb_unadvertise(_sensor_pub);
+	orb_unsubscribe(_local_position_sub);
+	orb_unsubscribe(_wind_sub);
 
 	_rc_update.deinit();
 	_voted_sensors_update.deinit();

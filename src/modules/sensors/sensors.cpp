@@ -86,6 +86,7 @@
 #include <uORB/topics/sensor_preflight.h>
 #include <uORB/topics/vehicle_local_position.h>
 #include <uORB/topics/wind_estimate.h>
+#include <uORB/topics/vehicle_attitude.h>
 
 #include <DevMgr.hpp>
 
@@ -171,6 +172,7 @@ private:
 	int 		_params_sub;			/**< notification of parameter updates */
 	int		_local_position_sub;		/**< vehicle local position and velocity subscription used for air data estimation */
 	int		_wind_sub;			/**< wind velocity subscription used for air data estimation */
+	int		_vehicle_attitude_sub;		/**< vehicle attitude subscription used for air data estimation */
 
 
 	orb_advert_t	_sensor_pub;			/**< combined sensor data topic */
@@ -416,20 +418,163 @@ Sensors::update_estimated_airdata()
 			if (wind_estimate_available && !wind_estimate_too_uncertain) {
 				_air_data_estimates.valid = true;
 
-				// calculate true airspeed estimate
+				// calculate wind relative velocity in earth frame
 				Vector3f rel_vel = Vector3f((local_position_data.vx - _wind_estimate.windspeed_north) , (local_position_data.vy - _wind_estimate.windspeed_east) , local_position_data.vz);
 				_air_data_estimates.TAS_ms = rel_vel.norm();
-				_air_data_estimates.TAS_accuracy_ms = sqrtf(_wind_estimate.variance_north + _wind_estimate.variance_east + 2.0f * local_position_data.evh + local_position_data.evv);
+
+				// rotate into body frame
+				struct vehicle_attitude_s vehicle_attitude;
+				orb_copy(ORB_ID(vehicle_attitude), _vehicle_attitude_sub, &vehicle_attitude);
+				matrix::Quatf vehicle_quat;
+				vehicle_quat(0) = vehicle_attitude.q[0];
+				vehicle_quat(1) = vehicle_attitude.q[1];
+				vehicle_quat(2) = vehicle_attitude.q[2];
+				vehicle_quat(3) = vehicle_attitude.q[3];
+				matrix::Dcmf rot_mat(vehicle_quat.inversed());
+				Vector3f rel_vel_body = rot_mat * rel_vel;
+
+				// calculate the angle of attack and sideslip
+				_air_data_estimates.AoA_rad = atan2f(rel_vel_body(2) , rel_vel_body(0));
+				_air_data_estimates.AoA_rad = atan2f(rel_vel_body(1) , rel_vel_body(0));
 
 				/*
-				 *  TODO calculate AoA and AoS estimates
-				 * 1) rotate relative velocity into body frame
-				 * 2) AoA = asin(vbody_z / magnitude(vbody))
-				 * 3) AoS = atan2f(vbody_y , v_body_x)
-				 *
-				 * Need to derive angle error as a function of the vehicle and wind velocity error
+				 * Autocoded expressions for calculating the TAS, AoA and AoS error as a function of the
+				 * velocity error. See:
+				 * https://github.com/PX4/ecl/blob/master/matlab/scripts/Inertial%20Nav%20EKF/derive_air_data_errors.m
+				 * https://github.com/PX4/ecl/blob/master/matlab/scripts/Inertial%20Nav%20EKF/Q_airdata.c
 				*/
 
+				float vn_var = local_position_data.evh*local_position_data.evh;
+				float ve_var = vn_var;
+				float vd_var = local_position_data.evv*local_position_data.evv;
+				const float vwd_var = 0.25f; // vertical wind speed variance (m/s)**2
+
+				float t3 = local_position_data.vy-_wind_estimate.windspeed_east;
+				float t4 = vehicle_quat(0)*vehicle_quat(0);
+				float t5 = vehicle_quat(1)*vehicle_quat(1);
+				float t6 = vehicle_quat(2)*vehicle_quat(2);
+				float t7 = vehicle_quat(0)*vehicle_quat(0);
+				float t8 = local_position_data.vz;
+				float t9 = vehicle_quat(0)*vehicle_quat(1)*2.0f;
+				float t10 = vehicle_quat(2)*vehicle_quat(0)*2.0f;
+				float t11 = local_position_data.vx-_wind_estimate.windspeed_north;
+				float t13 = vehicle_quat(0)*vehicle_quat(2)*2.0f;
+				float t14 = vehicle_quat(1)*vehicle_quat(0)*2.0f;
+				float t18 = t4-t5-t6+t7;
+				float t19 = t8*t18;
+				float t20 = t9-t10;
+				float t21 = t3*t20;
+				float t22 = t13+t14;
+				float t23 = t11*t22;
+				float t2 = t19-t21+t23;
+				float t15 = vehicle_quat(0)*vehicle_quat(0)*2.0f;
+				float t16 = vehicle_quat(1)*vehicle_quat(2)*2.0f;
+				float t24 = t9+t10;
+				float t25 = t4-t5+t6-t7;
+				float t26 = t3*t25;
+				float t27 = t8*t24;
+				float t28 = t15-t16;
+				float t29 = t11*t28;
+				float t12 = t26+t27-t29;
+				float t30 = t13-t14;
+				float t31 = t4+t5-t6-t7;
+				float t32 = t11*t31;
+				float t33 = t8*t30;
+				float t34 = t15+t16;
+				float t35 = t3*t34;
+				float t17 = t32-t33+t35;
+				float t44 = t2*t18*2.0f;
+				float t45 = t12*t24*2.0f;
+				float t46 = t17*t30*2.0f;
+				float t36 = t44+t45-t46;
+				float t37 = t2*t2;
+				float t38 = t12*t12;
+				float t39 = t17*t17;
+				float t40 = t37+t38+t39;
+
+				if (fabsf(t40) < 1e-9f) {
+					_air_data_estimates.TAS_accuracy_ms = 0.0f;
+
+				} else {
+					float t41 = 1.0f/t40;
+					float t48 = t12*t25*2.0f;
+					float t49 = t2*t20*2.0f;
+					float t50 = t17*t34*2.0f;
+					float t42 = t48-t49+t50;
+					float t52 = t17*t31*2.0f;
+					float t53 = t2*t22*2.0f;
+					float t54 = t12*t28*2.0f;
+					float t43 = t52+t53-t54;
+					float t47 = t36*t36;
+					float t51 = t42*t42;
+					float t55 = t43*t43;
+					_air_data_estimates.TAS_accuracy_ms = sqrtf(t41*t47*vd_var*0.25f+t41*t51*ve_var*0.25f+t41*t55*vn_var*0.25f+t41*t47*vwd_var*0.25f+t41*t51*_wind_estimate.variance_east*0.25f+t41*t55*_wind_estimate.variance_north*0.25f);
+
+				}
+
+				float t57 = t17*t17;
+				if (t57 < 1e-9f) {
+					_air_data_estimates.AoA_accuracy_rad = 0.0f;
+					_air_data_estimates.AoS_accuracy_rad = 0.0f;
+
+					// If the inverse of t57 cannot be calculated safely, then the AoA and AoS
+					// error calculations cannot be performed
+					return;
+
+				}
+				t57 = 1.0f/(t57);
+
+				float t58 = 1.0f/t17;
+				float t63 = t18*t58;
+				float t64 = t2*t30*t57;
+				float t56 = t63+t64;
+				float t66 = t22*t58;
+				float t67 = t2*t31*t57;
+				float t59 = t66-t67;
+				float t60 = t37*t57;
+				float t61 = t60+1.0f;
+
+				float t62 = t61*t61;
+				if (t62 < 1e-9f) {
+					_air_data_estimates.AoA_accuracy_rad = 0.0f;
+
+				} else {
+					t62 = 1.0f/t62;
+					float t65 = t56*t56;
+					float t68 = t59*t59;
+					float t70 = t20*t58;
+					float t71 = t2*t34*t57;
+					float t69 = t70+t71;
+					float t72 = t69*t69;
+					_air_data_estimates.AoA_accuracy_rad = sqrtf(t62*t65*vd_var+t62*t72*ve_var+t62*t68*vn_var+t62*t65*vwd_var+t62*t72*_wind_estimate.variance_east+t62*t68*_wind_estimate.variance_north);
+					_air_data_estimates.AoA_rad = atan2f(rel_vel(2) , rel_vel(0));
+
+				}
+
+				float t78 = t25*t58;
+				float t79 = t12*t34*t57;
+				float t73 = t78-t79;
+				float t81 = t28*t58;
+				float t82 = t12*t31*t57;
+				float t74 = t81+t82;
+				float t75 = t38*t57;
+				float t76 = t75+1.0f;
+
+				float t77 = t76*t76;
+				if (t77 < 1e-9f) {
+					_air_data_estimates.AoS_accuracy_rad = 0.0f;
+
+				} else {
+					t77 = 1.0f/t77;
+					float t80 = t73*t73;
+					float t83 = t74*t74;
+					float t85 = t24*t58;
+					float t86 = t12*t30*t57;
+					float t84 = t85+t86;
+					float t87 = t84*t84;
+					_air_data_estimates.AoS_accuracy_rad = sqrtf(t77*t87*vd_var+t77*t80*ve_var+t77*t83*vn_var+t77*t87*vwd_var+t77*t80*_wind_estimate.variance_east+t77*t83*_wind_estimate.variance_north);
+
+				}
 
 			} else {
 				_air_data_estimates.valid = false;
@@ -670,6 +815,8 @@ Sensors::run()
 
 	_wind_sub = orb_subscribe(ORB_ID(wind_estimate));
 
+	_vehicle_attitude_sub = orb_subscribe(ORB_ID(vehicle_attitude));
+
 	_vcontrol_mode_sub = orb_subscribe(ORB_ID(vehicle_control_mode));
 
 	_params_sub = orb_subscribe(ORB_ID(parameter_update));
@@ -793,6 +940,7 @@ Sensors::run()
 	orb_unadvertise(_sensor_pub);
 	orb_unsubscribe(_local_position_sub);
 	orb_unsubscribe(_wind_sub);
+	orb_unsubscribe(_vehicle_attitude_sub);
 
 	_rc_update.deinit();
 	_voted_sensors_update.deinit();

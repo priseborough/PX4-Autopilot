@@ -1,7 +1,6 @@
 # Consolidated air data estimates
 
-float32 EAS_ms			# Equivalent airpeed (m/s)
-float32 EAS_accuracy_ms		# Equivalent airpeed 1-Sigma accuracy (m/s)
+float32 tas2eas			# conversion factor from tas to eas
 float32 TAS_ms			# True airpeed (m/s)
 float32 TAS_accuracy_ms		# True airpeed 1-Sigma accuracy (m/s)
 float32 AoA_rad			# Angle of attack (rad)

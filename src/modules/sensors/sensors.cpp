@@ -87,6 +87,7 @@
 #include <uORB/topics/vehicle_local_position.h>
 #include <uORB/topics/wind_estimate.h>
 #include <uORB/topics/vehicle_attitude.h>
+#include <uORB/topics/airdata_estimate.h>
 
 #include <DevMgr.hpp>
 
@@ -185,29 +186,18 @@ private:
 	orb_advert_t	_airspeed_pub;			/**< airspeed */
 	orb_advert_t	_diff_pres_pub;			/**< differential_pressure */
 	orb_advert_t	_sensor_preflight;		/**< sensor preflight topic */
+	orb_advert_t	_airdata_estimate_pub;
 
 	perf_counter_t	_loop_perf;			/**< loop performance counter */
 
 	DataValidator	_airspeed_validator;		/**< data validator to monitor airspeed */
 
-	struct air_data {
-		float EAS_ms;		// Equivalent airpeed (m/s)
-		float EAS_accuracy_ms;	// Equivalent airpeed 1-Sigma accuracy (m/s)
-		float TAS_ms;		// True airpeed (m/s)
-		float TAS_accuracy_ms;	// True airpeed 1-Sigma accuracy (m/s)
-		float AoA_rad;		// Angle of attack (rad)
-		float AoA_accuracy_rad;	// Angle of attack 1-Sigma accuracy (rad)
-		float AoS_rad;		// Angle of sideslip (rad)
-		float AoS_accuracy_rad;	// Angle of sideslip 1-Sigma accuracy (rad)
-		bool valid;		// true when the estimate is valid
-	};
-
-	struct air_data _air_data_estimates; // Estimated air data after consolidation
 	struct wind_estimate_s _wind_estimate;
 
 	struct battery_status_s _battery_status[BOARD_NUMBER_BRICKS];	/**< battery status */
 	struct differential_pressure_s _diff_pres;
 	struct airspeed_s _airspeed;
+	struct airdata_estimate_s _airdata_estimate;
 
 
 	Battery		_battery[BOARD_NUMBER_BRICKS];			/**< Helper lib to publish battery_status topic. */
@@ -279,6 +269,7 @@ Sensors::Sensors(bool hil_enabled) :
 	_airspeed_pub(nullptr),
 	_diff_pres_pub(nullptr),
 	_sensor_preflight(nullptr),
+	_airdata_estimate_pub(nullptr),
 
 	/* performance counters */
 	_loop_perf(perf_alloc(PC_ELAPSED, "sensors")),
@@ -288,7 +279,7 @@ Sensors::Sensors(bool hil_enabled) :
 {
 	memset(&_diff_pres, 0, sizeof(_diff_pres));
 	memset(&_parameters, 0, sizeof(_parameters));
-	memset(&_air_data_estimates, 0, sizeof(_air_data_estimates));
+	memset(&_airdata_estimate, 0, sizeof(_airdata_estimate));
 	memset(&_wind_estimate, 0, sizeof(_wind_estimate));
 
 	initialize_parameter_handles(_parameter_handles);
@@ -416,11 +407,9 @@ Sensors::update_estimated_airdata()
 			bool wind_estimate_too_uncertain = (sqrtf(_wind_estimate.variance_north) < 0.5f * ground_speed) || (sqrtf(_wind_estimate.variance_east) > 0.5f * ground_speed);
 
 			if (wind_estimate_available && !wind_estimate_too_uncertain) {
-				_air_data_estimates.valid = true;
-
 				// calculate wind relative velocity in earth frame
 				Vector3f rel_vel = Vector3f((local_position_data.vx - _wind_estimate.windspeed_north) , (local_position_data.vy - _wind_estimate.windspeed_east) , local_position_data.vz);
-				_air_data_estimates.TAS_ms = rel_vel.norm();
+				_airdata_estimate.TAS_ms = rel_vel.norm();
 
 				// rotate into body frame
 				struct vehicle_attitude_s vehicle_attitude;
@@ -434,8 +423,8 @@ Sensors::update_estimated_airdata()
 				Vector3f rel_vel_body = rot_mat * rel_vel;
 
 				// calculate the angle of attack and sideslip
-				_air_data_estimates.AoA_rad = atan2f(rel_vel_body(2) , rel_vel_body(0));
-				_air_data_estimates.AoA_rad = atan2f(rel_vel_body(1) , rel_vel_body(0));
+				_airdata_estimate.AoA_rad = atan2f(rel_vel_body(2) , rel_vel_body(0));
+				_airdata_estimate.AoS_rad = atan2f(rel_vel_body(1) , rel_vel_body(0));
 
 				/*
 				 * Autocoded expressions for calculating the TAS, AoA and AoS error as a function of the
@@ -493,7 +482,7 @@ Sensors::update_estimated_airdata()
 				float t40 = t37+t38+t39;
 
 				if (fabsf(t40) < 1e-9f) {
-					_air_data_estimates.TAS_accuracy_ms = 0.0f;
+					_airdata_estimate.TAS_accuracy_ms = 0.0f;
 
 				} else {
 					float t41 = 1.0f/t40;
@@ -508,14 +497,14 @@ Sensors::update_estimated_airdata()
 					float t47 = t36*t36;
 					float t51 = t42*t42;
 					float t55 = t43*t43;
-					_air_data_estimates.TAS_accuracy_ms = sqrtf(t41*t47*vd_var*0.25f+t41*t51*ve_var*0.25f+t41*t55*vn_var*0.25f+t41*t47*vwd_var*0.25f+t41*t51*_wind_estimate.variance_east*0.25f+t41*t55*_wind_estimate.variance_north*0.25f);
+					_airdata_estimate.TAS_accuracy_ms = sqrtf(t41*t47*vd_var*0.25f+t41*t51*ve_var*0.25f+t41*t55*vn_var*0.25f+t41*t47*vwd_var*0.25f+t41*t51*_wind_estimate.variance_east*0.25f+t41*t55*_wind_estimate.variance_north*0.25f);
 
 				}
 
 				float t57 = t17*t17;
 				if (t57 < 1e-9f) {
-					_air_data_estimates.AoA_accuracy_rad = 0.0f;
-					_air_data_estimates.AoS_accuracy_rad = 0.0f;
+					_airdata_estimate.AoA_accuracy_rad = 0.0f;
+					_airdata_estimate.AoS_accuracy_rad = 0.0f;
 
 					// If the inverse of t57 cannot be calculated safely, then the AoA and AoS
 					// error calculations cannot be performed
@@ -536,7 +525,7 @@ Sensors::update_estimated_airdata()
 
 				float t62 = t61*t61;
 				if (t62 < 1e-9f) {
-					_air_data_estimates.AoA_accuracy_rad = 0.0f;
+					_airdata_estimate.AoA_accuracy_rad = 0.0f;
 
 				} else {
 					t62 = 1.0f/t62;
@@ -546,8 +535,7 @@ Sensors::update_estimated_airdata()
 					float t71 = t2*t34*t57;
 					float t69 = t70+t71;
 					float t72 = t69*t69;
-					_air_data_estimates.AoA_accuracy_rad = sqrtf(t62*t65*vd_var+t62*t72*ve_var+t62*t68*vn_var+t62*t65*vwd_var+t62*t72*_wind_estimate.variance_east+t62*t68*_wind_estimate.variance_north);
-					_air_data_estimates.AoA_rad = atan2f(rel_vel(2) , rel_vel(0));
+					_airdata_estimate.AoA_accuracy_rad = sqrtf(t62*t65*vd_var+t62*t72*ve_var+t62*t68*vn_var+t62*t65*vwd_var+t62*t72*_wind_estimate.variance_east+t62*t68*_wind_estimate.variance_north);
 
 				}
 
@@ -562,7 +550,7 @@ Sensors::update_estimated_airdata()
 
 				float t77 = t76*t76;
 				if (t77 < 1e-9f) {
-					_air_data_estimates.AoS_accuracy_rad = 0.0f;
+					_airdata_estimate.AoS_accuracy_rad = 0.0f;
 
 				} else {
 					t77 = 1.0f/t77;
@@ -572,12 +560,12 @@ Sensors::update_estimated_airdata()
 					float t86 = t12*t30*t57;
 					float t84 = t85+t86;
 					float t87 = t84*t84;
-					_air_data_estimates.AoS_accuracy_rad = sqrtf(t77*t87*vd_var+t77*t80*ve_var+t77*t83*vn_var+t77*t87*vwd_var+t77*t80*_wind_estimate.variance_east+t77*t83*_wind_estimate.variance_north);
+					_airdata_estimate.AoS_accuracy_rad = sqrtf(t77*t87*vd_var+t77*t80*ve_var+t77*t83*vn_var+t77*t87*vwd_var+t77*t80*_wind_estimate.variance_east+t77*t83*_wind_estimate.variance_north);
 
 				}
 
-			} else {
-				_air_data_estimates.valid = false;
+				int instance;
+				orb_publish_auto(ORB_ID(airdata_estimate), &_airdata_estimate_pub, &_airdata_estimate, &instance, ORB_PRIO_DEFAULT);
 
 			}
 		}
@@ -831,6 +819,7 @@ Sensors::run()
 	_voted_sensors_update.sensors_poll(raw);
 
 	diff_pres_poll(raw);
+	update_estimated_airdata();
 
 	_rc_update.rc_parameter_map_poll(_parameter_handles, true /* forced */);
 
@@ -889,6 +878,7 @@ Sensors::run()
 		adc_poll(raw);
 
 		diff_pres_poll(raw);
+		update_estimated_airdata();
 
 		if (raw.timestamp > 0) {
 
@@ -941,6 +931,7 @@ Sensors::run()
 	orb_unsubscribe(_local_position_sub);
 	orb_unsubscribe(_wind_sub);
 	orb_unsubscribe(_vehicle_attitude_sub);
+	orb_unadvertise(_airdata_estimate_pub);
 
 	_rc_update.deinit();
 	_voted_sensors_update.deinit();

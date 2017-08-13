@@ -37,6 +37,7 @@ set(msg_file_names
 	actuator_direct.msg
 	actuator_outputs.msg
 	adc_report.msg
+	airdata_estimate.msg
 	airspeed.msg
 	att_pos_mocap.msg
 	battery_status.msg

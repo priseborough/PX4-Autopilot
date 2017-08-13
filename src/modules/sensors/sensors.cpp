@@ -173,8 +173,8 @@ private:
 	int 		_params_sub;			/**< notification of parameter updates */
 	int		_local_position_sub;		/**< vehicle local position and velocity subscription used for air data estimation */
 	int		_wind_sub;			/**< wind velocity subscription used for air data estimation */
+	float		_tas2eas;			/** conversion factor from TAS to EAS */
 	int		_vehicle_attitude_sub;		/**< vehicle attitude subscription used for air data estimation */
-
 
 	orb_advert_t	_sensor_pub;			/**< combined sensor data topic */
 	orb_advert_t	_battery_pub[BOARD_NUMBER_BRICKS] = {nullptr};			/**< battery status */
@@ -263,6 +263,8 @@ Sensors::Sensors(bool hil_enabled) :
 	_params_sub(-1),
 	_local_position_sub(-1),
 	_wind_sub(-1),
+
+	_tas2eas(1.0f),
 
 	/* publications */
 	_sensor_pub(nullptr),
@@ -384,6 +386,10 @@ Sensors::diff_pres_poll(struct sensor_combined_s &raw)
 
 		int instance;
 		orb_publish_auto(ORB_ID(airspeed), &_airspeed_pub, &_airspeed, &instance, ORB_PRIO_DEFAULT);
+
+		// calculate the conversion factor from true to equivalent airspeed
+		float air_density = get_air_density(_voted_sensors_update.baro_pressure(), air_temperature_celsius);
+		_tas2eas = sqrtf(air_density / 1.225f);
 	}
 }
 
@@ -410,6 +416,7 @@ Sensors::update_estimated_airdata()
 				// calculate wind relative velocity in earth frame
 				Vector3f rel_vel = Vector3f((local_position_data.vx - _wind_estimate.windspeed_north) , (local_position_data.vy - _wind_estimate.windspeed_east) , local_position_data.vz);
 				_airdata_estimate.TAS_ms = rel_vel.norm();
+				_airdata_estimate.EAS_ms = _tas2eas * _airdata_estimate.TAS_ms;
 
 				// rotate into body frame
 				struct vehicle_attitude_s vehicle_attitude;
@@ -483,6 +490,7 @@ Sensors::update_estimated_airdata()
 
 				if (fabsf(t40) < 1e-9f) {
 					_airdata_estimate.TAS_accuracy_ms = 0.0f;
+					_airdata_estimate.EAS_accuracy_ms = 0.0f;
 
 				} else {
 					float t41 = 1.0f/t40;
@@ -498,6 +506,7 @@ Sensors::update_estimated_airdata()
 					float t51 = t42*t42;
 					float t55 = t43*t43;
 					_airdata_estimate.TAS_accuracy_ms = sqrtf(t41*t47*vd_var*0.25f+t41*t51*ve_var*0.25f+t41*t55*vn_var*0.25f+t41*t47*vwd_var*0.25f+t41*t51*_wind_estimate.variance_east*0.25f+t41*t55*_wind_estimate.variance_north*0.25f);
+					_airdata_estimate.EAS_accuracy_ms = _tas2eas * _airdata_estimate.TAS_accuracy_ms;
 
 				}
 

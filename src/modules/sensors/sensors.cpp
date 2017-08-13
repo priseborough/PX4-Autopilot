@@ -416,7 +416,7 @@ Sensors::update_estimated_airdata()
 				// calculate wind relative velocity in earth frame
 				Vector3f rel_vel = Vector3f((local_position_data.vx - _wind_estimate.windspeed_north) , (local_position_data.vy - _wind_estimate.windspeed_east) , local_position_data.vz);
 				_airdata_estimate.TAS_ms = rel_vel.norm();
-				_airdata_estimate.EAS_ms = _tas2eas * _airdata_estimate.TAS_ms;
+				_airdata_estimate.tas2eas = _tas2eas;
 
 				// rotate into body frame
 				struct vehicle_attitude_s vehicle_attitude;
@@ -490,7 +490,6 @@ Sensors::update_estimated_airdata()
 
 				if (fabsf(t40) < 1e-9f) {
 					_airdata_estimate.TAS_accuracy_ms = 0.0f;
-					_airdata_estimate.EAS_accuracy_ms = 0.0f;
 
 				} else {
 					float t41 = 1.0f/t40;
@@ -506,7 +505,6 @@ Sensors::update_estimated_airdata()
 					float t51 = t42*t42;
 					float t55 = t43*t43;
 					_airdata_estimate.TAS_accuracy_ms = sqrtf(t41*t47*vd_var*0.25f+t41*t51*ve_var*0.25f+t41*t55*vn_var*0.25f+t41*t47*vwd_var*0.25f+t41*t51*_wind_estimate.variance_east*0.25f+t41*t55*_wind_estimate.variance_north*0.25f);
-					_airdata_estimate.EAS_accuracy_ms = _tas2eas * _airdata_estimate.TAS_accuracy_ms;
 
 				}
 

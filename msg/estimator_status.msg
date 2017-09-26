@@ -97,3 +97,4 @@ uint16 solution_status_flags # Bitmask indicating which filter kinematic state o
 # 10 - True if the EKF has detected a GPS glitch
 
 float32 time_slip # cumulative amount of time in seconds that the EKF inertial calculation has slipped relative to system time
+float32[4] quat_ekf2ev # quaternion defining the estimated rotation from the ekf to the external vision frame of reference

@@ -842,8 +842,18 @@ void Ekf2::run()
 			ev_data.posNED(0) = ev_pos.x;
 			ev_data.posNED(1) = ev_pos.y;
 			ev_data.posNED(2) = ev_pos.z;
-			matrix::Quatf q(ev_att.q);
-			ev_data.quat = q;
+			matrix::Quatf q(ev_att.q); // rotation from nav to body frame
+
+			// Test code to rotate EV measurements into a differnt frame of reference
+			// define rotation from nav (N) to vision (V) inertial reference frames
+			const matrix::Eulerf euler_vn = {0.0f,0.0f,1.0f};
+			matrix::Quatf q_vn = Quatf(euler_vn);
+			matrix::Dcmf R_vn = matrix::Dcmf(q_vn.inversed());
+
+			// rotate EV measurements from NED to EV earth frame
+			matrix::Quatf q_bv = q * q_vn.inversed(); // vision to body frame rotation
+			ev_data.quat = q_bv;
+			ev_data.posNED = R_vn * ev_data.posNED;
 
 			// position measurement error from parameters. TODO : use covariances from topic
 			ev_data.posErr = _ev_pos_noise.get();
@@ -1086,6 +1096,8 @@ void Ekf2::run()
 				status.pos_vert_accuracy = lpos.epv;
 				_ekf.get_ekf_soln_status(&status.solution_status_flags);
 				_ekf.get_imu_vibe_metrics(status.vibe);
+
+				_ekf.get_ekf2ev_quaternion(status.quat_ekf2ev);
 
 				// monitor time slippage
 				if (_start_time_us != 0 && now > _start_time_us) {

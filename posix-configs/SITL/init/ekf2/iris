@@ -20,11 +20,13 @@ param set COM_OBL_ACT 2
 param set COM_OBL_RC_ACT 0
 param set COM_OF_LOSS_T 5
 param set COM_RC_IN_MODE 1
-param set EKF2_AID_MASK 1
+param set EKF2_AID_MASK 73
 param set EKF2_ANGERR_INIT 0.01
 param set EKF2_GBIAS_INIT 0.01
 param set EKF2_HGT_MODE 0
 param set EKF2_MAG_TYPE 1
+param set EKF2_EV_DELAY 10
+param set EKF2_EVP_NOISE 0.01
 param set MAV_TYPE 2
 param set MC_PITCH_P 6
 param set MC_PITCHRATE_P 0.2
@@ -51,7 +53,7 @@ gyrosim start
 accelsim start
 barosim start
 adcsim start
-gpssim start
+gpssim start -t 1
 pwm_out_sim mode_pwm
 sensors start
 commander start

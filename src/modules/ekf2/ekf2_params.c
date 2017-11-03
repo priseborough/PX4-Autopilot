@@ -1200,3 +1200,27 @@ PARAM_DEFINE_FLOAT(EKF2_ABL_GYRLIM, 3.0f);
  * @decimal 2
  */
 PARAM_DEFINE_FLOAT(EKF2_ABL_TAU, 0.5f);
+
+/**
+ * Barometric altitude drop due to to rotor wash ground interaction at takeoff.
+ * Setting this to a positive number will cause the EKF to ignore the nagative baro height change starting from when the motors are armed and finishing 10 seconds after takeoff is detected or when vehicle has climbed by EKF2_BGE_HMAX m.
+ *
+ * @group EKF2
+ * @min 0.0
+ * @max 10.0
+ * @unit m
+ * @decimal 1
+ */
+PARAM_DEFINE_FLOAT(EKF2_BGE_HDROP, 5.0f);
+
+/**
+ * Height above ground at which barometric altitude drop due to rotor wash ground interaction is negligible.
+ * Baro height ground effect compensation will be turned off when more than EKF2_BGE_HMAX height gain from takeoff has been measured.
+ *
+ * @group EKF2
+ * @min 0.0
+ * @max 1.0
+ * @unit m
+ * @decimal 1
+ */
+PARAM_DEFINE_FLOAT(EKF2_BGE_HMAX, 0.5f);

@@ -109,7 +109,10 @@ public:
 private:
 	int getRangeSubIndex(const int *subs); ///< get subscribtion index of first downward-facing range sensor
 
-	bool 	_replay_mode = false;			///< true when we use replay data from a log
+	bool 	_replay_mode = false;		///< true when we use replay data from a log
+	bool	_is_flying = false;		///< true when the vehicle is flying
+	bool	_is_armed = false;		///< true when vehicle arming state is ready for flight
+	bool	_about_to_fly = false;		///< true when the vehicle is armed and still on the ground
 
 	// time slip monitoring
 	uint64_t _integrated_time_us = 0;	///< integral of gyro delta time from start (uSec)
@@ -319,6 +322,9 @@ private:
 
 	BlockParamInt _airspeed_disabled;	///< airspeed mode parameter
 
+	BlockParamExtFloat _baro_gnd_effect;	///< reduction in baro height at takeoff due to ground effect - RW only (m)
+	BlockParamExtFloat _baro_gnd_effect_max_hgt;	///< height above ground where baro ground effect compensation is turned off (m)
+
 };
 
 Ekf2::Ekf2():
@@ -429,8 +435,9 @@ Ekf2::Ekf2():
 	_K_pstatic_coef_xn(this, "PCOEF_XN"),
 	_K_pstatic_coef_y(this, "PCOEF_Y"),
 	_K_pstatic_coef_z(this, "PCOEF_Z"),
-	// non EKF2 parameters
-	_airspeed_disabled(this, "FW_ARSP_MODE", false)
+	_airspeed_disabled(this, "FW_ARSP_MODE", false),	// non EKF2 parameter
+	_baro_gnd_effect(this, "EKF2_BGE_HDROP", true, _params->gnd_effect_deadzone),
+	_baro_gnd_effect_max_hgt(this, "EKF2_BGE_HMAX", true, _params->gnd_effect_max_hgt)
 {
 }
 
@@ -532,10 +539,32 @@ void Ekf2::run()
 		orb_copy(ORB_ID(sensor_combined), sensors_sub, &sensors);
 		// update all other topics if they have new data
 
+		orb_check(vehicle_land_detected_sub, &vehicle_land_detected_updated);
+
+		if (vehicle_land_detected_updated) {
+			orb_copy(ORB_ID(vehicle_land_detected), vehicle_land_detected_sub, &vehicle_land_detected);
+			_ekf.set_in_air_status(!vehicle_land_detected.landed);
+			_is_flying = !vehicle_land_detected.landed;
+		}
+
 		orb_check(status_sub, &vehicle_status_updated);
 
 		if (vehicle_status_updated) {
 			orb_copy(ORB_ID(vehicle_status), status_sub, &vehicle_status);
+			if ((vehicle_status.arming_state == vehicle_status.ARMING_STATE_ARMED) && !_is_armed && !_is_flying) {
+				_about_to_fly = true;
+
+			} else if (_about_to_fly && _is_flying) {
+				_about_to_fly = false;
+
+			}
+
+			_is_armed = (vehicle_status.arming_state == vehicle_status.ARMING_STATE_ARMED);
+
+			// enable ground effect baro pressure compensation if we are a rotary wing vehicle about to take off
+			if (vehicle_status.is_rotary_wing && _about_to_fly) {
+				_ekf.set_gnd_effect_flag(true);
+			}
 		}
 
 		orb_check(gps_sub, &gps_updated);
@@ -813,6 +842,7 @@ void Ekf2::run()
 
 			// let the EKF know if the vehicle motion is that of a fixed wing (forward flight only relative to wind)
 			_ekf.set_is_fixed_wing(!vehicle_status.is_rotary_wing);
+
 		}
 
 		if (optical_flow_updated) {
@@ -851,13 +881,6 @@ void Ekf2::run()
 
 			// use timestamp from external computer, clocks are synchronized when using MAVROS
 			_ekf.setExtVisionData(vision_position_updated ? ev_pos.timestamp : ev_att.timestamp, &ev_data);
-		}
-
-		orb_check(vehicle_land_detected_sub, &vehicle_land_detected_updated);
-
-		if (vehicle_land_detected_updated) {
-			orb_copy(ORB_ID(vehicle_land_detected), vehicle_land_detected_sub, &vehicle_land_detected);
-			_ekf.set_in_air_status(!vehicle_land_detected.landed);
 		}
 
 		// run the EKF update and output
@@ -1422,7 +1445,7 @@ int Ekf2::task_spawn(int argc, char *argv[])
 	_task_id = px4_task_spawn_cmd("ekf2",
 				      SCHED_DEFAULT,
 				      SCHED_PRIORITY_ESTIMATOR,
-				      5720,
+				      6557,
 				      (px4_main_t)&run_trampoline,
 				      (char *const *)argv);
 

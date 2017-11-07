@@ -51,7 +51,7 @@ using namespace sensors;
 using namespace DriverFramework;
 
 
-const double VotedSensorsUpdate::_msl_pressure = 101.325;
+double VotedSensorsUpdate::_msl_pressure = 101.325;
 
 VotedSensorsUpdate::VotedSensorsUpdate(const Parameters &parameters, bool hil_enabled)
 	: _parameters(parameters), _hil_enabled(hil_enabled)
@@ -225,6 +225,12 @@ void VotedSensorsUpdate::parameters_update()
 		}
 	}
 
+
+	// Use the specified QNH if available and convert from hPa to kPa
+	float pstatic_sl_hPa = 1013.5f;
+	if (param_get(OK == param_find("SENS_BARO_QNH"), &pstatic_sl_hPa)) {
+		_msl_pressure = (double)(0.1f * pstatic_sl_hPa);
+	}
 
 	/* set offset parameters to new values */
 	bool failed;

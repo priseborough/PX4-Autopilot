@@ -285,7 +285,7 @@ private:
 	uint32_t _gyro_device_id[SENSOR_COUNT_MAX] = {};
 	uint32_t _mag_device_id[SENSOR_COUNT_MAX] = {};
 
-	static const double	_msl_pressure;	/** average sea-level pressure in kPa */
+	static double	_msl_pressure;	/** average sea-level pressure in kPa */
 };
 
 

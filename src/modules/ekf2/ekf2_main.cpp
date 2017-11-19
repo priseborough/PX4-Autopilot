@@ -493,13 +493,12 @@ void Ekf2::run()
 	airspeed_s airspeed = {};
 	optical_flow_s optical_flow = {};
 	distance_sensor_s range_finder = {};
-	vehicle_land_detected_s vehicle_land_detected = {};
 	vehicle_local_position_s ev_pos = {};
 	vehicle_attitude_s ev_att = {};
 	vehicle_status_s vehicle_status = {};
 	sensor_selection_s sensor_selection = {};
 	sensor_baro_s sensor_baro = {};
-	sensor_baro.pressure = 1013.5; // initialise pressure to sea level
+	sensor_baro.pressure = 1013.5f; // initialise pressure to sea level
 
 	while (!should_exit()) {
 		int ret = px4_poll(fds, sizeof(fds) / sizeof(fds[0]), 1000);
@@ -535,7 +534,6 @@ void Ekf2::run()
 		bool sensor_selection_updated = false;
 		bool optical_flow_updated = false;
 		bool range_finder_updated = false;
-		bool vehicle_land_detected_updated = false;
 		bool vision_position_updated = false;
 		bool vision_attitude_updated = false;
 		bool vehicle_status_updated = false;
@@ -543,12 +541,16 @@ void Ekf2::run()
 		orb_copy(ORB_ID(sensor_combined), sensors_sub, &sensors);
 		// update all other topics if they have new data
 
+		bool vehicle_land_detected_updated = false;
 		orb_check(vehicle_land_detected_sub, &vehicle_land_detected_updated);
 
 		if (vehicle_land_detected_updated) {
-			orb_copy(ORB_ID(vehicle_land_detected), vehicle_land_detected_sub, &vehicle_land_detected);
-			_ekf.set_in_air_status(!vehicle_land_detected.landed);
-			_is_flying = !vehicle_land_detected.landed;
+			vehicle_land_detected_s vehicle_land_detected;
+
+			if (orb_copy(ORB_ID(vehicle_land_detected), vehicle_land_detected_sub, &vehicle_land_detected) == PX4_OK) {
+				_ekf.set_in_air_status(!vehicle_land_detected.landed);
+				_is_flying = !vehicle_land_detected.landed;
+			}
 		}
 
 		orb_check(status_sub, &vehicle_status_updated);
@@ -1134,7 +1136,7 @@ void Ekf2::run()
 				/* Check and save learned magnetometer bias estimates */
 
 				// Check if conditions are OK to for learning of magnetometer bias values
-				if (!vehicle_land_detected.landed && // not on ground
+				if (_is_flying && // not on ground
 				    (vehicle_status.arming_state == vehicle_status_s::ARMING_STATE_ARMED) && // vehicle is armed
 				    (status.filter_fault_flags == 0) && // there are no filter faults
 				    (status.control_mode_flags & (1 << 5))) { // the EKF is operating in the correct mode

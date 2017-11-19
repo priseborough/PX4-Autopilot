@@ -320,10 +320,13 @@ private:
 	BlockParamFloat _K_pstatic_coef_y;	///< static pressure position error coefficient along the Y body axis
 	BlockParamFloat _K_pstatic_coef_z;	///< static pressure position error coefficient along the Z body axis
 
-	BlockParamInt _airspeed_disabled;	///< airspeed mode parameter
-
 	BlockParamExtFloat _baro_gnd_effect;	///< reduction in baro height at takeoff due to ground effect - RW only (m)
-	BlockParamExtFloat _baro_gnd_effect_max_hgt;	///< height above ground where baro ground effect compensation is turned off (m)
+	BlockParamExtFloat
+	_baro_gnd_effect_max_hgt;	///< height above ground where baro ground effect compensation is turned off (m)
+
+
+	// non EKF2 parameters
+	BlockParamInt _airspeed_disabled;	///< airspeed mode parameter
 
 };
 
@@ -435,9 +438,10 @@ Ekf2::Ekf2():
 	_K_pstatic_coef_xn(this, "PCOEF_XN"),
 	_K_pstatic_coef_y(this, "PCOEF_Y"),
 	_K_pstatic_coef_z(this, "PCOEF_Z"),
-	_airspeed_disabled(this, "FW_ARSP_MODE", false),	// non EKF2 parameter
-	_baro_gnd_effect(this, "EKF2_BGE_HDROP", true, _params->gnd_effect_deadzone),
-	_baro_gnd_effect_max_hgt(this, "EKF2_BGE_HMAX", true, _params->gnd_effect_max_hgt)
+	_baro_gnd_effect(this, "BGE_HDROP", true, _params->gnd_effect_deadzone),
+	_baro_gnd_effect_max_hgt(this, "BGE_HMAX", true, _params->gnd_effect_max_hgt),
+	// non EKF2 parameters
+	_airspeed_disabled(this, "FW_ARSP_MODE", false)
 {
 }
 
@@ -551,6 +555,7 @@ void Ekf2::run()
 
 		if (vehicle_status_updated) {
 			orb_copy(ORB_ID(vehicle_status), status_sub, &vehicle_status);
+
 			if ((vehicle_status.arming_state == vehicle_status.ARMING_STATE_ARMED) && !_is_armed && !_is_flying) {
 				_about_to_fly = true;
 

@@ -110,9 +110,14 @@ private:
 	int getRangeSubIndex(const int *subs); ///< get subscribtion index of first downward-facing range sensor
 
 	bool 	_replay_mode = false;		///< true when we use replay data from a log
-	bool	_is_flying = false;		///< true when the vehicle is flying
+
 	bool	_is_armed = false;		///< true when vehicle arming state is ready for flight
+	bool	_is_standby = false;		///< true when vehicle arming state is in standby
+
+	bool	_is_flying = false;		///< true when the vehicle is flying
 	bool	_about_to_fly = false;		///< true when the vehicle is armed and still on the ground
+
+	bool	_is_fixed_wing = false;		///< true if the vehicle is a fixed wing configuration
 
 	// time slip monitoring
 	uint64_t _integrated_time_us = 0;	///< integral of gyro delta time from start (uSec)
@@ -320,10 +325,13 @@ private:
 	BlockParamFloat _K_pstatic_coef_y;	///< static pressure position error coefficient along the Y body axis
 	BlockParamFloat _K_pstatic_coef_z;	///< static pressure position error coefficient along the Z body axis
 
-	BlockParamInt _airspeed_disabled;	///< airspeed mode parameter
-
 	BlockParamExtFloat _baro_gnd_effect;	///< reduction in baro height at takeoff due to ground effect - RW only (m)
-	BlockParamExtFloat _baro_gnd_effect_max_hgt;	///< height above ground where baro ground effect compensation is turned off (m)
+	BlockParamExtFloat
+	_baro_gnd_effect_max_hgt;	///< height above ground where baro ground effect compensation is turned off (m)
+
+
+	// non EKF2 parameters
+	BlockParamInt _airspeed_disabled;	///< airspeed mode parameter
 
 };
 
@@ -435,9 +443,10 @@ Ekf2::Ekf2():
 	_K_pstatic_coef_xn(this, "PCOEF_XN"),
 	_K_pstatic_coef_y(this, "PCOEF_Y"),
 	_K_pstatic_coef_z(this, "PCOEF_Z"),
-	_airspeed_disabled(this, "FW_ARSP_MODE", false),	// non EKF2 parameter
-	_baro_gnd_effect(this, "EKF2_BGE_HDROP", true, _params->gnd_effect_deadzone),
-	_baro_gnd_effect_max_hgt(this, "EKF2_BGE_HMAX", true, _params->gnd_effect_max_hgt)
+	_baro_gnd_effect(this, "BGE_HDROP", true, _params->gnd_effect_deadzone),
+	_baro_gnd_effect_max_hgt(this, "BGE_HMAX", true, _params->gnd_effect_max_hgt),
+	// non EKF2 parameters
+	_airspeed_disabled(this, "FW_ARSP_MODE", false)
 {
 }
 
@@ -489,13 +498,11 @@ void Ekf2::run()
 	airspeed_s airspeed = {};
 	optical_flow_s optical_flow = {};
 	distance_sensor_s range_finder = {};
-	vehicle_land_detected_s vehicle_land_detected = {};
 	vehicle_local_position_s ev_pos = {};
 	vehicle_attitude_s ev_att = {};
-	vehicle_status_s vehicle_status = {};
 	sensor_selection_s sensor_selection = {};
 	sensor_baro_s sensor_baro = {};
-	sensor_baro.pressure = 1013.5; // initialise pressure to sea level
+	sensor_baro.pressure = 1013.5f; // initialise pressure to sea level
 
 	while (!should_exit()) {
 		int ret = px4_poll(fds, sizeof(fds) / sizeof(fds[0]), 1000);
@@ -526,46 +533,66 @@ void Ekf2::run()
 		}
 
 		bool gps_updated = false;
-		bool airspeed_updated = false;
 		bool baro_updated = false;
 		bool sensor_selection_updated = false;
 		bool optical_flow_updated = false;
 		bool range_finder_updated = false;
-		bool vehicle_land_detected_updated = false;
 		bool vision_position_updated = false;
 		bool vision_attitude_updated = false;
-		bool vehicle_status_updated = false;
 
 		orb_copy(ORB_ID(sensor_combined), sensors_sub, &sensors);
 		// update all other topics if they have new data
 
+		bool vehicle_land_detected_updated = false;
 		orb_check(vehicle_land_detected_sub, &vehicle_land_detected_updated);
 
 		if (vehicle_land_detected_updated) {
-			orb_copy(ORB_ID(vehicle_land_detected), vehicle_land_detected_sub, &vehicle_land_detected);
-			_ekf.set_in_air_status(!vehicle_land_detected.landed);
-			_is_flying = !vehicle_land_detected.landed;
+			vehicle_land_detected_s vehicle_land_detected;
+
+			if (orb_copy(ORB_ID(vehicle_land_detected), vehicle_land_detected_sub, &vehicle_land_detected) == PX4_OK) {
+				_ekf.set_in_air_status(!vehicle_land_detected.landed);
+				_is_flying = !vehicle_land_detected.landed;
+			}
 		}
 
+		bool vehicle_status_updated = false;
 		orb_check(status_sub, &vehicle_status_updated);
 
 		if (vehicle_status_updated) {
-			orb_copy(ORB_ID(vehicle_status), status_sub, &vehicle_status);
-			if ((vehicle_status.arming_state == vehicle_status.ARMING_STATE_ARMED) && !_is_armed && !_is_flying) {
-				_about_to_fly = true;
+			vehicle_status_s vehicle_status;
 
-			} else if (_about_to_fly && _is_flying) {
-				_about_to_fly = false;
+			if (orb_copy(ORB_ID(vehicle_status), status_sub, &vehicle_status) == PX4_OK) {
+				if ((vehicle_status.arming_state == vehicle_status.ARMING_STATE_ARMED) && !_is_armed && !_is_flying) {
+					_about_to_fly = true;
 
-			}
+				} else if (_about_to_fly && _is_flying) {
+					_about_to_fly = false;
+				}
 
-			_is_armed = (vehicle_status.arming_state == vehicle_status.ARMING_STATE_ARMED);
+				_is_armed = (vehicle_status.arming_state == vehicle_status.ARMING_STATE_ARMED);
+				_is_standby = (vehicle_status.arming_state == vehicle_status_s::ARMING_STATE_STANDBY);
 
-			// enable ground effect baro pressure compensation if we are a rotary wing vehicle about to take off
-			if (vehicle_status.is_rotary_wing && _about_to_fly) {
-				_ekf.set_gnd_effect_flag(true);
+				_is_fixed_wing = !vehicle_status.is_rotary_wing;
+
+				if (vehicle_status.is_rotary_wing) {
+					// enable ground effect baro pressure compensation if we are a rotary wing vehicle about to take off
+					if (_about_to_fly) {
+						_ekf.set_gnd_effect_flag(true);
+					}
+
+					_ekf.set_fuse_beta_flag(false);
+					_ekf.set_is_fixed_wing(false);
+
+				} else {
+					// only fuse synthetic sideslip measurements if conditions are met
+					_ekf.set_fuse_beta_flag(_fuseBeta.get() == 1);
+
+					// let the EKF know if the vehicle motion is that of a fixed wing (forward flight only relative to wind)
+					_ekf.set_is_fixed_wing(true);
+				}
 			}
 		}
+
 
 		orb_check(gps_sub, &gps_updated);
 
@@ -573,13 +600,26 @@ void Ekf2::run()
 			orb_copy(ORB_ID(vehicle_gps_position), gps_sub, &gps);
 		}
 
+
+		bool airspeed_updated = false;
+
 		// Do not attempt to use airspeed if use has been disabled by the user.
 		if (_airspeed_disabled.get() == 0) {
 			orb_check(airspeed_sub, &airspeed_updated);
 		}
 
 		if (airspeed_updated) {
-			orb_copy(ORB_ID(airspeed), airspeed_sub, &airspeed);
+			if (orb_copy(ORB_ID(airspeed), airspeed_sub, &airspeed) == PX4_OK) {
+				// only set airspeed data if condition for airspeed fusion are met
+				const bool fuse_airspeed = _is_fixed_wing
+							   && (_arspFusionThreshold.get() > FLT_EPSILON)
+							   && (airspeed.true_airspeed_m_s > _arspFusionThreshold.get());
+
+				if (fuse_airspeed) {
+					const float eas2tas = airspeed.true_airspeed_m_s / airspeed.indicated_airspeed_m_s;
+					_ekf.setAirspeedData(airspeed.timestamp, airspeed.true_airspeed_m_s, eas2tas);
+				}
+			}
 		}
 
 		orb_check(sensor_baro_sub, &baro_updated);
@@ -703,7 +743,7 @@ void Ekf2::run()
 					}
 				}
 
-				if ((vehicle_status.arming_state != vehicle_status_s::ARMING_STATE_ARMED) && (_invalid_mag_id_count > 100)) {
+				if (!_is_armed && (_invalid_mag_id_count > 100)) {
 					// the sensor ID used for the last saved mag bias is not confirmed to be the same as the current sensor ID
 					// this means we need to reset the learned bias values to zero
 					_mag_bias_x.set(0.f);
@@ -823,26 +863,6 @@ void Ekf2::run()
 			gps_msg.gdop = 0.0f;
 
 			_ekf.setGpsData(gps.timestamp, &gps_msg);
-		}
-
-		// only set airspeed data if condition for airspeed fusion are met
-		bool fuse_airspeed = airspeed_updated && !vehicle_status.is_rotary_wing
-				     && (_arspFusionThreshold.get() > FLT_EPSILON)
-				     && (airspeed.true_airspeed_m_s > _arspFusionThreshold.get());
-
-		if (fuse_airspeed) {
-			float eas2tas = airspeed.true_airspeed_m_s / airspeed.indicated_airspeed_m_s;
-			_ekf.setAirspeedData(airspeed.timestamp, airspeed.true_airspeed_m_s, eas2tas);
-		}
-
-		if (vehicle_status_updated) {
-			// only fuse synthetic sideslip measurements if conditions are met
-			bool fuse_beta = !vehicle_status.is_rotary_wing && (_fuseBeta.get() == 1);
-			_ekf.set_fuse_beta_flag(fuse_beta);
-
-			// let the EKF know if the vehicle motion is that of a fixed wing (forward flight only relative to wind)
-			_ekf.set_is_fixed_wing(!vehicle_status.is_rotary_wing);
-
 		}
 
 		if (optical_flow_updated) {
@@ -1129,8 +1149,8 @@ void Ekf2::run()
 				/* Check and save learned magnetometer bias estimates */
 
 				// Check if conditions are OK to for learning of magnetometer bias values
-				if (!vehicle_land_detected.landed && // not on ground
-				    (vehicle_status.arming_state == vehicle_status_s::ARMING_STATE_ARMED) && // vehicle is armed
+				if (_is_flying && // not on ground
+				    _is_armed && // vehicle is armed
 				    (status.filter_fault_flags == 0) && // there are no filter faults
 				    (status.control_mode_flags & (1 << 5))) { // the EKF is operating in the correct mode
 					if (_last_magcal_us == 0) {
@@ -1176,9 +1196,10 @@ void Ekf2::run()
 				}
 
 				// Check and save the last valid calibration when we are disarmed
-				if ((vehicle_status.arming_state == vehicle_status_s::ARMING_STATE_STANDBY)
+				if (_is_standby
 				    && (status.filter_fault_flags == 0)
 				    && (sensor_selection.mag_device_id == _mag_bias_id.get())) {
+
 					BlockParamFloat *mag_biases[] = { &_mag_bias_x, &_mag_bias_y, &_mag_bias_z };
 
 					for (uint8_t axis_index = 0; axis_index <= 2; axis_index++) {
@@ -1253,7 +1274,7 @@ void Ekf2::run()
 				_ekf.get_output_tracking_error(&innovations.output_tracking_error[0]);
 
 				// calculate noise filtered velocity innovations which are used for pre-flight checking
-				if (vehicle_status.arming_state == vehicle_status_s::ARMING_STATE_STANDBY) {
+				if (_is_standby) {
 					float alpha = constrain(sensors.accelerometer_integral_dt / 1.e6f * _innov_lpf_tau_inv, 0.0f, 1.0f);
 					float beta = 1.0f - alpha;
 					_vel_innov_lpf_ned(0) = beta * _vel_innov_lpf_ned(0) + alpha * constrain(innovations.vel_pos_innov[0],

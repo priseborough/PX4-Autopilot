@@ -53,14 +53,45 @@ void LowPassFilter2p::set_cutoff_frequency(float sample_freq, float cutoff_freq)
 		return;
 	}
 
-	float fr = sample_freq / _cutoff_freq;
-	float ohm = tanf(M_PI_F / fr);
-	float c = 1.0f + 2.0f * cosf(M_PI_F / 4.0f) * ohm + ohm * ohm;
-	_b0 = ohm * ohm / c;
+	/*
+	Equivalent Laplace transfer function:
+
+				  1
+	G(s) = --------------------------------------
+	       (1/omega^2)*s^2 + (2*zeta/omega)*s + 1
+
+	omega = 2 * PI * cutoff_freq  (rad/sec)
+	zeta = viscous damping ratio = 1/Q
+
+	A damping ratio of 1/sqrt(2) achieves a flat pass-band without peaking and minimises phase loss
+
+	Coefficients are calculated for an equivalent bi-quad IIR filter using a bilinear transform.
+	Cutoff frequency is normalised for a unity time step and prewarped before applying the transformation.
+
+	Z domain transfer function given by:
+
+						     omega_n^2*(z + 1)^2
+	G(z) = -------------------------------------------------------------------------------------------------
+	       omega_n^2*z^2 + 2*omega_n^2*z + omega_n^2 + 4*zeta*omega_n*z^2 - 4*zeta*omega_n + 4*z^2 - 8*z + 4
+	*/
+
+	// normalise frequency for unit time step and apply pre-warping
+	const float omega_n = 2.0f * tanf(M_PI_F * _cutoff_freq / sample_freq);
+
+	// set optimum damping ratio
+	const float zeta = 0.7071068f;
+
+	// calculate intermediate terms
+	const float omega_n_sq = omega_n * omega_n;
+	const float temp = 4.0f * zeta * omega_n;
+	const float a0_inv = 1.0f / (omega_n_sq + temp + 4.0f);
+
+	// calculate difference equation coefficients assuming a0 = 1
+	_a1 = (2.0f * omega_n_sq - 8.0f) * a0_inv;
+	_a2 = (omega_n_sq - temp + 4.0f) * a0_inv;
+	_b0 = omega_n_sq * a0_inv;
 	_b1 = 2.0f * _b0;
 	_b2 = _b0;
-	_a1 = 2.0f * (ohm * ohm - 1.0f) / c;
-	_a2 = (1.0f - 2.0f * cosf(M_PI_F / 4.0f) * ohm + ohm * ohm) / c;
 }
 
 float LowPassFilter2p::apply(float sample)

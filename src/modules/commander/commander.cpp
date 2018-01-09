@@ -1571,6 +1571,7 @@ Commander::run()
 	/* class variables used to check for navigation failure after takeoff */
 	hrt_abstime time_at_takeoff = 0; // last time we were on the ground
 	hrt_abstime time_last_innov_pass = 0; // last time velocity innovations passed
+	hrt_abstime time_last_spd_low = 0; // last time speed was below test threshold
 	bool nav_test_passed = false; // true if the post takeoff navigation test has passed
 	bool nav_test_failed = false; // true if the post takeoff navigation test has failed
 
@@ -2082,36 +2083,39 @@ Commander::run()
 			if (estimator_status_updated) {
 				orb_copy(ORB_ID(estimator_status), estimator_status_sub, &estimator_status);
 				if (status.arming_state == vehicle_status_s::ARMING_STATE_STANDBY) {
-					// reset flags and timer
+					// reset flags and timers
 					time_at_takeoff = hrt_absolute_time();
+					time_last_spd_low = hrt_absolute_time();
 					nav_test_failed = false;
 					nav_test_passed = false;
 				} else if (land_detector.landed) {
-					// record time of takeoff
+					// reset timers
 					time_at_takeoff = hrt_absolute_time();
-				} else {
-					// if nav status is unconfirmed, confirm yaw angle as passed after 30 seconds or achieving 5 m/s of speed
+					time_last_spd_low = hrt_absolute_time();
+				} else if (!nav_test_passed && !nav_test_failed) {
+					// if nav status is unconfirmed, confirm nav check passed after 30 seconds or achieving 5 m/s of speed
 					bool sufficient_time = (hrt_absolute_time() - time_at_takeoff > 30*1000*1000);
-					bool sufficient_speed = local_position.vx*local_position.vx + local_position.vy*local_position.vy > 25.0f;
 					bool innovation_pass = estimator_status.vel_test_ratio < 1.0f && estimator_status.pos_test_ratio < 1.0f;
-					if (!nav_test_failed) {
-						if (!nav_test_passed) {
-							// pass if sufficient time or speed
-							if (sufficient_time || sufficient_speed) {
-								nav_test_passed = true;
-							}
 
-							// record the last time the innovation check passed
-							if (innovation_pass) {
-								time_last_innov_pass = hrt_absolute_time();
-							}
+					// record the last time horizontal speed was below the threshold of 5 m/s
+					if (local_position.vx*local_position.vx + local_position.vy*local_position.vy < 25.0f) {
+						time_last_spd_low = hrt_absolute_time();
+					}
 
-							// if the innovation test has failed continuously, declare the nav as failed
-							if ((hrt_absolute_time() - time_last_innov_pass) > 1000*1000) {
-								nav_test_failed = true;
-								mavlink_log_emergency(&mavlink_log_pub, "CRITICAL NAVIGATION FAILURE - CHECK SENSOR CALIBRATION");
-							}
-						}
+					// pass if sufficient time has lapsed from takeoff of if the speed threshold has been exceeded for more than 3 sec
+					if (sufficient_time || ((hrt_absolute_time() - time_last_spd_low) > 3*1000*1000)) {
+						nav_test_passed = true;
+					}
+
+					// record the last time the innovation check passed
+					if (innovation_pass) {
+						time_last_innov_pass = hrt_absolute_time();
+					}
+
+					// if the innovation test has failed continuously, declare the nav as failed
+					if ((hrt_absolute_time() - time_last_innov_pass) > 1000*1000) {
+						nav_test_failed = true;
+						mavlink_log_emergency(&mavlink_log_pub, "CRITICAL NAVIGATION FAILURE - CHECK SENSOR CALIBRATION");
 					}
 				}
 			}

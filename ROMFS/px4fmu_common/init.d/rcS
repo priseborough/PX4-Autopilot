@@ -403,12 +403,7 @@ then
 		sensors start -h
 		commander start --hil
 	else
-		if ver hwcmp PX4_SAME70XPLAINED_V1
-		then
-			gps start -d /dev/ttyS2
-		else
-			gps start
-		fi
+		gps start -d /dev/ttyS3 -e /dev/ttyS2
 		sh /etc/init.d/rc.sensors
 		commander start
 	fi

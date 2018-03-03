@@ -97,6 +97,8 @@ msg_id_map = {
     'vehicle_status': 92,
     'vtol_vehicle_status': 93,
     'wind_estimate': 94,
+
+    'ekf_groundtruth': 95,
 }
 
 def message_id(message):

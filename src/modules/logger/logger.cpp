@@ -647,6 +647,7 @@ void Logger::add_default_topics()
 	add_topic("vehicle_local_position_groundtruth", 100);
 	add_topic("vehicle_roi");
 #endif
+	add_topic("ekf_groundtruth");
 }
 
 void Logger::add_high_rate_topics()
@@ -675,6 +676,7 @@ void Logger::add_estimator_replay_topics()
 	add_topic("ekf2_timestamps");
 
 	// current EKF2 subscriptions
+	add_topic("ekf_groundtruth");
 	add_topic("airspeed");
 	add_topic("distance_sensor");
 	add_topic("optical_flow");

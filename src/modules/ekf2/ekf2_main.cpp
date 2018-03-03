@@ -70,6 +70,7 @@
 #include <uORB/topics/landing_target_pose.h>
 #include <uORB/topics/vehicle_air_data.h>
 #include <uORB/topics/vehicle_magnetometer.h>
+#include <uORB/topics/ekf_groundtruth.h>
 
 using math::constrain;
 
@@ -169,7 +170,6 @@ private:
 	int _airspeed_sub{-1};
 	int _ev_att_sub{-1};
 	int _ev_pos_sub{-1};
-	int _gps_sub{-1};
 	int _landing_target_pose_sub{-1};
 	int _magnetometer_sub{-1};
 	int _optical_flow_sub{-1};
@@ -183,12 +183,16 @@ private:
 	int _range_finder_subs[ORB_MULTI_MAX_INSTANCES];
 	int _range_finder_sub_index = -1; // index for downward-facing range finder subscription
 
+	// because we can have multiple GPS instances
+	int _gps_subs[ORB_MULTI_MAX_INSTANCES];
+
 	orb_advert_t _att_pub{nullptr};
 	orb_advert_t _wind_pub{nullptr};
 	orb_advert_t _estimator_status_pub{nullptr};
 	orb_advert_t _estimator_innovations_pub{nullptr};
 	orb_advert_t _ekf2_timestamps_pub{nullptr};
 	orb_advert_t _sensor_bias_pub{nullptr};
+	orb_advert_t _truth_pub{nullptr};
 
 	uORB::Publication<vehicle_local_position_s> _vehicle_local_position_pub;
 	uORB::Publication<vehicle_global_position_s> _vehicle_global_position_pub;
@@ -503,7 +507,6 @@ Ekf2::Ekf2():
 	_airspeed_sub = orb_subscribe(ORB_ID(airspeed));
 	_ev_att_sub = orb_subscribe(ORB_ID(vehicle_vision_attitude));
 	_ev_pos_sub = orb_subscribe(ORB_ID(vehicle_vision_position));
-	_gps_sub = orb_subscribe(ORB_ID(vehicle_gps_position));
 	_landing_target_pose_sub = orb_subscribe(ORB_ID(landing_target_pose));
 	_magnetometer_sub = orb_subscribe(ORB_ID(vehicle_magnetometer));
 	_optical_flow_sub = orb_subscribe(ORB_ID(optical_flow));
@@ -514,6 +517,8 @@ Ekf2::Ekf2():
 	_vehicle_land_detected_sub = orb_subscribe(ORB_ID(vehicle_land_detected));
 
 	for (unsigned i = 0; i < ORB_MULTI_MAX_INSTANCES; i++) {
+		_gps_subs[i] = -1;
+		_gps_subs[i] = orb_subscribe_multi(ORB_ID(vehicle_gps_position), i);
 		_range_finder_subs[i] = orb_subscribe_multi(ORB_ID(distance_sensor), i);
 	}
 
@@ -527,7 +532,6 @@ Ekf2::~Ekf2()
 	orb_unsubscribe(_airspeed_sub);
 	orb_unsubscribe(_ev_att_sub);
 	orb_unsubscribe(_ev_pos_sub);
-	orb_unsubscribe(_gps_sub);
 	orb_unsubscribe(_landing_target_pose_sub);
 	orb_unsubscribe(_magnetometer_sub);
 	orb_unsubscribe(_optical_flow_sub);
@@ -540,6 +544,8 @@ Ekf2::~Ekf2()
 	for (unsigned i = 0; i < ORB_MULTI_MAX_INSTANCES; i++) {
 		orb_unsubscribe(_range_finder_subs[i]);
 		_range_finder_subs[i] = -1;
+		orb_unsubscribe(_gps_subs[i]);
+		_gps_subs[i] = -1;
 	}
 }
 
@@ -574,6 +580,13 @@ void Ekf2::run()
 {
 	bool imu_bias_reset_request = false;
 
+	// becasue we can have a second GPS used as a truth reference to asisst with tuning and algorithm development using replay
+	int gps_subs[2];
+
+	for (unsigned i = 0; i < 2; i++) {
+		gps_subs[i] = orb_subscribe_multi(ORB_ID(vehicle_gps_position), i);
+	}
+
 	px4_pollfd_struct_t fds[1] = {};
 	fds[0].fd = _sensors_sub;
 	fds[0].events = POLLIN;
@@ -585,6 +598,12 @@ void Ekf2::run()
 	vehicle_land_detected_s vehicle_land_detected = {};
 	vehicle_status_s vehicle_status = {};
 	sensor_selection_s sensor_selection = {};
+
+	// Position of local NED origin in GPS / WGS84 frame
+	map_projection_reference_s ekf_origin = {};
+	float ref_alt = 0.0f;
+	uint64_t origin_time = 0;
+	bool ekf_origin_valid = false;
 
 	while (!should_exit()) {
 		int ret = px4_poll(fds, sizeof(fds) / sizeof(fds[0]), 1000);
@@ -831,12 +850,12 @@ void Ekf2::run()
 
 		// read gps data if available
 		bool gps_updated = false;
-		orb_check(_gps_sub, &gps_updated);
+		orb_check(_gps_subs[0], &gps_updated);
 
 		if (gps_updated) {
 			vehicle_gps_position_s gps;
 
-			if (orb_copy(ORB_ID(vehicle_gps_position), _gps_sub, &gps) == PX4_OK) {
+			if (orb_copy(ORB_ID(vehicle_gps_position), _gps_subs[0], &gps) == PX4_OK) {
 				struct gps_message gps_msg;
 				gps_msg.time_usec = gps.timestamp;
 				gps_msg.lat = gps.lat;
@@ -858,6 +877,56 @@ void Ekf2::run()
 				_ekf.setGpsData(gps.timestamp, &gps_msg);
 
 				ekf2_timestamps.gps_timestamp_rel = (int16_t)((int64_t)gps.timestamp / 100 - (int64_t)ekf2_timestamps.timestamp / 100);
+			}
+		}
+
+		// check for GPS used as truth reference and publish
+		bool truth_updated = false;
+		orb_check(gps_subs[1], &truth_updated);
+
+		if (truth_updated) {
+			vehicle_gps_position_s truth_gps;
+
+			orb_copy(ORB_ID(vehicle_gps_position), gps_subs[1], &truth_gps);
+
+			// publish truth reference
+			ekf_groundtruth_s truth;
+			if (_truth_pub == nullptr) {
+				_truth_pub = orb_advertise(ORB_ID(ekf_groundtruth), &truth);
+
+			} else {
+				// Only calculate the relative position if the WGS-84 location of the origin is set
+				truth.x = 0.0f;
+				truth.y = 0.0f;
+				truth.z = 0.0f;
+
+				if (ekf_origin_valid) {
+					map_projection_project(&ekf_origin, (truth_gps.lat / 1.0e7), (truth_gps.lon / 1.0e7), &truth.x, &truth.y);
+					truth.z = ref_alt - 0.001f * (float)truth_gps.alt;
+					truth.lpos_valid = true;
+
+				} else {
+					truth.lpos_valid = false;
+				}
+
+				// copy other data across from reference GPS
+				truth.fix_type = truth_gps.fix_type;
+
+				truth.lat = truth_gps.lat;
+				truth.lon = truth_gps.lon;
+				truth.eph = truth_gps.eph;
+
+				truth.alt = truth_gps.alt;
+				truth.epv = truth_gps.epv;
+
+				truth.vx = truth_gps.vel_n_m_s;
+				truth.vy = truth_gps.vel_e_m_s;
+				truth.vz = truth_gps.vel_d_m_s;
+				truth.ev = truth_gps.s_variance_m_s;
+
+				truth.time_utc_usec = truth_gps.time_utc_usec;
+
+				orb_publish(ORB_ID(ekf_groundtruth), _truth_pub, &truth);
 			}
 		}
 
@@ -1085,12 +1154,8 @@ void Ekf2::run()
 			lpos.v_xy_valid = _ekf.local_position_is_valid() && !_preflt_horiz_fail;
 			lpos.v_z_valid = !_preflt_vert_fail;
 
-			// Position of local NED origin in GPS / WGS84 frame
-			map_projection_reference_s ekf_origin;
-			uint64_t origin_time;
-
 			// true if position (x,y,z) has a valid WGS-84 global reference (ref_lat, ref_lon, alt)
-			const bool ekf_origin_valid = _ekf.get_ekf_origin(&origin_time, &ekf_origin, &lpos.ref_alt);
+			ekf_origin_valid = _ekf.get_ekf_origin(&origin_time, &ekf_origin, &ref_alt);
 			lpos.xy_global = ekf_origin_valid;
 			lpos.z_global = ekf_origin_valid;
 
@@ -1098,6 +1163,7 @@ void Ekf2::run()
 				lpos.ref_timestamp = origin_time;
 				lpos.ref_lat = ekf_origin.lat_rad * 180.0 / M_PI; // Reference point latitude in degrees
 				lpos.ref_lon = ekf_origin.lon_rad * 180.0 / M_PI; // Reference point longitude in degrees
+				lpos.ref_alt = ref_alt;
 			}
 
 			// The rotation of the tangent plane vs. geographical north

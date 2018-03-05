@@ -406,6 +406,10 @@ then
 		if ver hwcmp PX4_SAME70XPLAINED_V1
 		then
 			gps start -d /dev/ttyS2
+		fi
+		if ver hwcmp PX4FMU_V4
+			param set SYS_COMPANION 0
+			gps start -d /dev/ttyS3 -e /dev/ttyS2
 		else
 			gps start
 		fi

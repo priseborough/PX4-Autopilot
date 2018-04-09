@@ -235,10 +235,14 @@ int position_estimator_inav_thread_main(int argc, char *argv[])
 	float z_est[2] = { 0.0f, 0.0f };	// pos, vel
 
 	float est_buf[EST_BUF_SIZE][3][2];	// estimated position buffer
-	float R_buf[EST_BUF_SIZE][3][3];	// rotation matrix buffer
-	float R_gps[3][3];					// rotation matrix for GPS correction moment
+	float R_buf[EST_BUF_SIZE][3][3];	// rotation matrix from body to earth frame buffer
+	float R_gps[3][3];			// rotation matrix from body to earth frame
+	float omega_buf[EST_BUF_SIZE][3];	// angular rate vector buffer
+	float omega_gps[3];			// angular rate vector at GPS time
 	memset(est_buf, 0, sizeof(est_buf));
 	memset(R_buf, 0, sizeof(R_buf));
+	memset(omega_buf, 0, sizeof(omega_buf));
+	memset(omega_gps, 0, sizeof(omega_gps));
 	memset(R_gps, 0, sizeof(R_gps));
 	int buf_ptr = 0;
 
@@ -916,6 +920,36 @@ int position_estimator_inav_thread_main(int argc, char *argv[])
 							est_i += EST_BUF_SIZE;
 						}
 
+						/* calculate GPS position offset in body frame */
+						float bf_pos_offset[3];
+						bf_pos_offset[0] = params.gps_pos_body_x - params.imu_pos_body_x;
+						bf_pos_offset[1] = params.gps_pos_body_y - params.imu_pos_body_y;
+						bf_pos_offset[2] = params.gps_pos_body_z - params.imu_pos_body_z;
+
+						/* retrieve rotation matrix at GPS sample time */
+						memcpy(R_gps, R_buf[est_i], sizeof(R_gps));
+
+						/* retrieve angular rate vector at GPS sample time */
+						memcpy(omega_gps, omega_buf[est_i], sizeof(omega_gps));
+
+						/* rotate to earth frame */
+						float ef_pos_offset[3];
+						rotate_vector3_forward(ef_pos_offset, R_gps, bf_pos_offset);
+
+						/* calculate GPS velocity offset in body frame */
+						float bf_vel_offset[3];
+						bf_vel_offset[0] = + omega_gps[1] * bf_pos_offset[2] - omega_gps[2] * bf_pos_offset[1];
+						bf_vel_offset[1] = - omega_gps[0] * bf_pos_offset[2] + omega_gps[2] * bf_pos_offset[0];
+						bf_vel_offset[2] = + omega_gps[0] * bf_pos_offset[1] - omega_gps[1] * bf_pos_offset[0];
+
+						/* rotate GPS velocity offset into earth frame */
+						float ef_vel_offset[3];
+						rotate_vector3_forward(ef_vel_offset, R_gps, bf_vel_offset);
+
+						/* correct position projection for GPS body frame offset */
+						gps_proj[0] -= ef_pos_offset[0];
+						gps_proj[1] -= ef_pos_offset[1];
+
 						/* calculate correction for position */
 						corr_gps[0][0] = gps_proj[0] - est_buf[est_i][0][0];
 						corr_gps[1][0] = gps_proj[1] - est_buf[est_i][1][0];
@@ -923,18 +957,15 @@ int position_estimator_inav_thread_main(int argc, char *argv[])
 
 						/* calculate correction for velocity */
 						if (gps.vel_ned_valid) {
-							corr_gps[0][1] = gps.vel_n_m_s - est_buf[est_i][0][1];
-							corr_gps[1][1] = gps.vel_e_m_s - est_buf[est_i][1][1];
-							corr_gps[2][1] = gps.vel_d_m_s - est_buf[est_i][2][1];
+							corr_gps[0][1] = gps.vel_n_m_s - est_buf[est_i][0][1] - ef_vel_offset[0];
+							corr_gps[1][1] = gps.vel_e_m_s - est_buf[est_i][1][1] - ef_vel_offset[1];
+							corr_gps[2][1] = gps.vel_d_m_s - est_buf[est_i][2][1] - ef_vel_offset[2];
 
 						} else {
 							corr_gps[0][1] = 0.0f;
 							corr_gps[1][1] = 0.0f;
 							corr_gps[2][1] = 0.0f;
 						}
-
-						/* save rotation matrix at this moment */
-						memcpy(R_gps, R_buf[est_i], sizeof(R_gps));
 
 						w_gps_xy = min_eph_epv / fmaxf(min_eph_epv, gps.eph);
 						w_gps_z = min_eph_epv / fmaxf(min_eph_epv, gps.epv);
@@ -1319,6 +1350,13 @@ int position_estimator_inav_thread_main(int argc, char *argv[])
 			/* push current rotation matrix to buffer */
 			memcpy(R_buf[buf_ptr], &R._data[0][0], sizeof(R._data));
 
+			/* push current rotation vector to buffer */
+			float omega_now[3];
+			omega_now[0] = sensor.gyro_rad[0];
+			omega_now[1] = sensor.gyro_rad[1];
+			omega_now[2] = sensor.gyro_rad[2];
+			memcpy(omega_buf[buf_ptr], &omega_now, sizeof(omega_gps));
+
 			buf_ptr++;
 
 			if (buf_ptr >= EST_BUF_SIZE) {
@@ -1443,6 +1481,12 @@ int inav_parameters_init(struct position_estimator_inav_param_handles *h)
 	h->enable_lidar_alt_est = param_find("INAV_LIDAR_EST");
 	h->lidar_calibration_offset = param_find("INAV_LIDAR_OFF");
 	h->att_ext_hdg_m = param_find("ATT_EXT_HDG_M");
+	h->imu_pos_body_x = param_find("INAV_IMU_POS_X");
+	h->imu_pos_body_y = param_find("INAV_IMU_POS_Y");
+	h->imu_pos_body_z = param_find("INAV_IMU_POS_Z");
+	h->gps_pos_body_x = param_find("INAV_GPS_POS_X");
+	h->gps_pos_body_y = param_find("INAV_GPS_POS_Y");
+	h->gps_pos_body_z = param_find("INAV_GPS_POS_Z");
 
 	return 0;
 }
@@ -1478,6 +1522,26 @@ int inav_parameters_update(const struct position_estimator_inav_param_handles *h
 	param_get(h->enable_lidar_alt_est, &(p->enable_lidar_alt_est));
 	param_get(h->lidar_calibration_offset, &(p->lidar_calibration_offset));
 	param_get(h->att_ext_hdg_m, &(p->att_ext_hdg_m));
+	param_get(h->imu_pos_body_x, &(p->imu_pos_body_x));
+	param_get(h->imu_pos_body_y, &(p->imu_pos_body_y));
+	param_get(h->imu_pos_body_z, &(p->imu_pos_body_z));
+	param_get(h->gps_pos_body_x, &(p->gps_pos_body_x));
+	param_get(h->gps_pos_body_y, &(p->gps_pos_body_y));
+	param_get(h->gps_pos_body_z, &(p->gps_pos_body_z));
 
 	return 0;
+}
+
+void rotate_vector3_forward(float vec_out[3], float mat_in[3][3] , float vec_in[3])
+{
+	vec_out[0] = mat_in[0][0] * vec_in[0] + mat_in[0][1] * vec_in[1] + mat_in[0][2] * vec_in[2];
+	vec_out[1] = mat_in[1][0] * vec_in[0] + mat_in[1][1] * vec_in[1] + mat_in[1][2] * vec_in[2];
+	vec_out[2] = mat_in[2][0] * vec_in[0] + mat_in[2][1] * vec_in[1] + mat_in[2][2] * vec_in[2];
+}
+
+void rotate_vector3_reverse(float vec_out[3], float mat_in[3][3] , float vec_in[3])
+{
+	vec_out[0] = mat_in[0][0] * vec_in[0] + mat_in[1][0] * vec_in[1] + mat_in[2][0] * vec_in[2];
+	vec_out[1] = mat_in[0][1] * vec_in[0] + mat_in[1][1] * vec_in[1] + mat_in[2][1] * vec_in[2];
+	vec_out[2] = mat_in[0][2] * vec_in[0] + mat_in[1][2] * vec_in[1] + mat_in[2][2] * vec_in[2];
 }

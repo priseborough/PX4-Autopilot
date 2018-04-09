@@ -70,6 +70,12 @@ struct position_estimator_inav_params {
 	int32_t enable_lidar_alt_est;
 	float lidar_calibration_offset;
 	int32_t att_ext_hdg_m;
+	float  imu_pos_body_x;
+	float  imu_pos_body_y;
+	float  imu_pos_body_z;
+	float  gps_pos_body_x;
+	float  gps_pos_body_y;
+	float  gps_pos_body_z;
 };
 
 struct position_estimator_inav_param_handles {
@@ -101,6 +107,12 @@ struct position_estimator_inav_param_handles {
 	param_t enable_lidar_alt_est;
 	param_t lidar_calibration_offset;
 	param_t att_ext_hdg_m;
+	param_t imu_pos_body_x;
+	param_t imu_pos_body_y;
+	param_t imu_pos_body_z;
+	param_t gps_pos_body_x;
+	param_t gps_pos_body_y;
+	param_t gps_pos_body_z;
 };
 
 #define CBRK_NO_VISION_KEY	328754
@@ -117,3 +129,6 @@ int inav_parameters_init(struct position_estimator_inav_param_handles *h);
  */
 int inav_parameters_update(const struct position_estimator_inav_param_handles *h,
 			   struct position_estimator_inav_params *p);
+
+void rotate_vector3_forward(float vec_out[3], float mat_in[3][3] , float vec_in[3]);
+void rotate_vector3_reverse(float vec_out[3], float mat_in[3][3] , float vec_in[3]);

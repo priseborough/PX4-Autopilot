@@ -343,3 +343,57 @@ PARAM_DEFINE_FLOAT(INAV_LIDAR_OFF, 0.0f);
  * @group Position Estimator INAV
  */
 PARAM_DEFINE_INT32(CBRK_NO_VISION, 0);
+
+/**
+ * X position of IMU in body frame
+ *
+ * @group EKF2
+ * @unit m
+ * @decimal 3
+ */
+PARAM_DEFINE_FLOAT(INAV_IMU_POS_X, 0.0f);
+
+/**
+ * Y position of IMU in body frame
+ *
+ * @group EKF2
+ * @unit m
+ * @decimal 3
+ */
+PARAM_DEFINE_FLOAT(INAV_IMU_POS_Y, 0.0f);
+
+/**
+ * Z position of IMU in body frame
+ *
+ * @group EKF2
+ * @unit m
+ * @decimal 3
+ */
+PARAM_DEFINE_FLOAT(INAV_IMU_POS_Z, 0.0f);
+
+/**
+ * X position of GPS antenna in body frame
+ *
+ * @group EKF2
+ * @unit m
+ * @decimal 3
+ */
+PARAM_DEFINE_FLOAT(INAV_GPS_POS_X, 0.0f);
+
+/**
+ * Y position of GPS antenna in body frame
+ *
+ * @group EKF2
+ * @unit m
+ * @decimal 3
+ */
+PARAM_DEFINE_FLOAT(INAV_GPS_POS_Y, 0.0f);
+
+/**
+ * Z position of GPS antenna in body frame
+ *
+ * @group EKF2
+ * @unit m
+ * @decimal 3
+ */
+PARAM_DEFINE_FLOAT(INAV_GPS_POS_Z, 0.0f);

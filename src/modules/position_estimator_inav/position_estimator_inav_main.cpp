@@ -1363,6 +1363,21 @@ int position_estimator_inav_thread_main(int argc, char *argv[])
 				buf_ptr = 0;
 			}
 
+			/* define body frame position off set from origin to IMU */
+			float bf_pos_offset[3];
+			bf_pos_offset[0] = params.imu_pos_body_x;
+			bf_pos_offset[1] = params.imu_pos_body_y;
+			bf_pos_offset[2] = params.imu_pos_body_z;
+
+			/* calculate velocity at IMU due to angular rotation about origin */
+			float bf_vel_offset[3];
+			bf_vel_offset[0] = + sensor.gyro_rad[1] * bf_pos_offset[2] - sensor.gyro_rad[2] * bf_pos_offset[1];
+			bf_vel_offset[1] = - sensor.gyro_rad[0] * bf_pos_offset[2] + sensor.gyro_rad[2] * bf_pos_offset[0];
+			bf_vel_offset[2] = + sensor.gyro_rad[0] * bf_pos_offset[1] - sensor.gyro_rad[1] * bf_pos_offset[0];
+
+			/* rotate velocity offset into earth frame */
+			float ef_vel_offset[3];
+			rotate_vector3_forward(ef_vel_offset, R_gps, bf_vel_offset);
 
 			/* publish local position */
 			local_pos.xy_valid = can_estimate_xy;
@@ -1370,11 +1385,11 @@ int position_estimator_inav_thread_main(int argc, char *argv[])
 			local_pos.xy_global = local_pos.xy_valid && use_gps_xy;
 			local_pos.z_global = local_pos.z_valid && use_gps_z;
 			local_pos.x = x_est[0];
-			local_pos.vx = x_est[1];
+			local_pos.vx = x_est[1] - ef_vel_offset[0];
 			local_pos.y = y_est[0];
-			local_pos.vy = y_est[1];
+			local_pos.vy = y_est[1] - ef_vel_offset[1];
 			local_pos.z = z_est[0];
-			local_pos.vz = z_est[1];
+			local_pos.vz = z_est[1] - ef_vel_offset[2];
 			matrix::Eulerf euler(R);
 			local_pos.yaw = euler.psi();
 			local_pos.dist_bottom_valid = dist_bottom_valid;

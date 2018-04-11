@@ -236,7 +236,8 @@ int position_estimator_inav_thread_main(int argc, char *argv[])
 
 	float est_buf[EST_BUF_SIZE][3][2];	// estimated position buffer
 	float R_buf[EST_BUF_SIZE][3][3];	// rotation matrix from body to earth frame buffer
-	float R_gps[3][3];			// rotation matrix from body to earth frame
+	float R_gps[3][3];			// rotation matrix from body to earth frame at GPS sample time
+	float R_now[3][3];			// rotation matrix from body to earth frame at current time
 	float omega_buf[EST_BUF_SIZE][3];	// angular rate vector buffer
 	float omega_gps[3];			// angular rate vector at GPS time
 	memset(est_buf, 0, sizeof(est_buf));
@@ -244,6 +245,7 @@ int position_estimator_inav_thread_main(int argc, char *argv[])
 	memset(omega_buf, 0, sizeof(omega_buf));
 	memset(omega_gps, 0, sizeof(omega_gps));
 	memset(R_gps, 0, sizeof(R_gps));
+	memset(R_now, 0, sizeof(R_now));
 	int buf_ptr = 0;
 
 	static const float min_eph_epv = 2.0f;	// min EPH/EPV, used for weight calculation
@@ -1350,6 +1352,9 @@ int position_estimator_inav_thread_main(int argc, char *argv[])
 			/* push current rotation matrix to buffer */
 			memcpy(R_buf[buf_ptr], &R._data[0][0], sizeof(R._data));
 
+			/* copy current rotation matrix to class variable */
+			memcpy(R_now, &R._data[0][0], sizeof(R._data));
+
 			/* push current rotation vector to buffer */
 			float omega_now[3];
 			omega_now[0] = sensor.gyro_rad[0];
@@ -1379,16 +1384,20 @@ int position_estimator_inav_thread_main(int argc, char *argv[])
 			float ef_vel_offset[3];
 			rotate_vector3_forward(ef_vel_offset, R_gps, bf_vel_offset);
 
-			/* publish local position */
+			/* rotate IMU body frame position offset into earth frame */
+			float ef_pos_offset[3];
+			rotate_vector3_forward(ef_pos_offset, R_now, bf_pos_offset);
+
+			/* publish local position, correcting positon and velocity for IMU body frame offset */
 			local_pos.xy_valid = can_estimate_xy;
 			local_pos.v_xy_valid = can_estimate_xy;
 			local_pos.xy_global = local_pos.xy_valid && use_gps_xy;
 			local_pos.z_global = local_pos.z_valid && use_gps_z;
-			local_pos.x = x_est[0];
+			local_pos.x = x_est[0] - ef_pos_offset[0];
 			local_pos.vx = x_est[1] - ef_vel_offset[0];
-			local_pos.y = y_est[0];
+			local_pos.y = y_est[0]- ef_pos_offset[1];
 			local_pos.vy = y_est[1] - ef_vel_offset[1];
-			local_pos.z = z_est[0];
+			local_pos.z = z_est[0]- ef_pos_offset[2];
 			local_pos.vz = z_est[1] - ef_vel_offset[2];
 			matrix::Eulerf euler(R);
 			local_pos.yaw = euler.psi();

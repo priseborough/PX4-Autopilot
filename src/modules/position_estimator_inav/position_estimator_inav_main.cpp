@@ -1382,7 +1382,7 @@ int position_estimator_inav_thread_main(int argc, char *argv[])
 
 			/* rotate velocity offset into earth frame */
 			float ef_vel_offset[3];
-			rotate_vector3_forward(ef_vel_offset, R_gps, bf_vel_offset);
+			rotate_vector3_forward(ef_vel_offset, R_now, bf_vel_offset);
 
 			/* rotate IMU body frame position offset into earth frame */
 			float ef_pos_offset[3];

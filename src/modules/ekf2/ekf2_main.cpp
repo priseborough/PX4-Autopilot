@@ -70,6 +70,7 @@
 #include <uORB/topics/landing_target_pose.h>
 #include <uORB/topics/vehicle_air_data.h>
 #include <uORB/topics/vehicle_magnetometer.h>
+#include <uORB/topics/ekf_gps_position.h>
 
 // defines used to specify the mask position for use of different accuracy metrics in the GPS blending algorithm
 #define BLEND_MASK_USE_SPD_ACC      1
@@ -235,7 +236,7 @@ private:
 	orb_advert_t _estimator_innovations_pub{nullptr};
 	orb_advert_t _ekf2_timestamps_pub{nullptr};
 	orb_advert_t _sensor_bias_pub{nullptr};
-	orb_advert_t _truth_pub{nullptr};
+	orb_advert_t _ekf_gps_position_pub{nullptr};
 
 	uORB::Publication<vehicle_local_position_s> _vehicle_local_position_pub;
 	uORB::Publication<vehicle_global_position_s> _vehicle_global_position_pub;
@@ -977,7 +978,31 @@ void Ekf2::run()
 				}
 			}
 
+			// publish selected GPS for logging
 			_ekf.setGpsData(_gps_output[_gps_select_index].time_usec, &_gps_output[_gps_select_index]);
+			ekf_gps_position_s gps;
+
+			if (_ekf_gps_position_pub == nullptr) {
+				_ekf_gps_position_pub = orb_advertise(ORB_ID(ekf_gps_position), &gps);
+
+			} else {
+				gps.timestamp = _gps_state[_gps_select_index].time_usec;
+				gps.lat = _gps_output[_gps_select_index].lat;
+				gps.lon = _gps_output[_gps_select_index].lon;
+				gps.alt = _gps_output[_gps_select_index].alt;
+				gps.fix_type = _gps_output[_gps_select_index].fix_type;
+				gps.eph = _gps_output[_gps_select_index].eph;
+				gps.epv = _gps_output[_gps_select_index].epv;
+				gps.s_variance_m_s = _gps_output[_gps_select_index].sacc;
+				gps.vel_m_s = _gps_output[_gps_select_index].vel_m_s;
+				gps.vel_n_m_s = _gps_output[_gps_select_index].vel_ned[0];
+				gps.vel_e_m_s = _gps_output[_gps_select_index].vel_ned[1];
+				gps.vel_d_m_s = _gps_output[_gps_select_index].vel_ned[2];
+				gps.vel_ned_valid = _gps_output[_gps_select_index].vel_ned_valid;
+				gps.satellites_used = _gps_output[_gps_select_index].nsats;
+
+				orb_publish(ORB_ID(ekf_gps_position), _ekf_gps_position_pub, &gps);
+			}
 		}
 
 		bool airspeed_updated = false;

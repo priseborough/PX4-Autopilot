@@ -616,7 +616,6 @@ void Logger::add_default_topics()
 	add_topic("estimator_status", 200);
 	add_topic("home_position");
 	add_topic("input_rc", 200);
-	add_topic("iridiumsbd_status");
 	add_topic("landing_target_pose");
 	add_topic("manual_control_setpoint", 200);
 	add_topic("mission");
@@ -636,6 +635,7 @@ void Logger::add_default_topics()
 	add_topic("vehicle_command");
 	add_topic("vehicle_global_position", 200);
 	add_topic("vehicle_gps_position");
+	add_topic("ekf_gps_position");
 	add_topic("vehicle_land_detected");
 	add_topic("vehicle_local_position", 100);
 	add_topic("vehicle_local_position_setpoint", 100);
@@ -691,6 +691,7 @@ void Logger::add_estimator_replay_topics()
 {
 	// for estimator replay (need to be at full rate)
 	add_topic("ekf2_timestamps");
+	add_topic("ekf_gps_position");
 
 	// current EKF2 subscriptions
 	add_topic("airspeed");

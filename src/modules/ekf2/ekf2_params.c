@@ -1282,7 +1282,7 @@ PARAM_DEFINE_FLOAT(EKF2_ABL_TAU, 0.5f);
  * @bit 1 use hpos accuracy
  * @bit 2 use vpos accuracy
  */
-PARAM_DEFINE_INT32(EKF2_GPS_BLEND, 0);
+PARAM_DEFINE_INT32(EKF2_GPS_BLEND, 1);
 
 /**
  * Multi GPS Blending Time Constant

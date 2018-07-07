@@ -108,6 +108,7 @@ void FlightTaskManualAltitude::_updateAltitudeLock()
 			if (stick_input || too_fast || !PX4_ISFINITE(_dist_to_bottom)) {
 				_terrain_hold = false;
 				_terrain_follow = false;
+				printf("HOLD OFF %i %i %i\n", stick_input, too_fast, !PX4_ISFINITE(_dist_to_bottom));
 
 				// adjust the setpoint to maintain the same height error to reduce control transients
 				if (PX4_ISFINITE(_dist_to_ground_lock) && PX4_ISFINITE(_dist_to_bottom)) {
@@ -124,6 +125,7 @@ void FlightTaskManualAltitude::_updateAltitudeLock()
 			if (!stick_input && not_moving && PX4_ISFINITE(_dist_to_bottom)) {
 				_terrain_hold = true;
 				_terrain_follow = true;
+				printf("HOLD ON\n");
 
 				// adjust the setpoint to maintain the same height error to reduce control transients
 				if (PX4_ISFINITE(_position_setpoint(2))) {

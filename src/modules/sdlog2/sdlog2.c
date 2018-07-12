@@ -1965,7 +1965,7 @@ int sdlog2_thread_main(int argc, char *argv[])
 				log_msg.body.log_DIST.type = buf.distance_sensor.type;
 				log_msg.body.log_DIST.orientation = buf.distance_sensor.orientation;
 				log_msg.body.log_DIST.current_distance = buf.distance_sensor.current_distance;
-				log_msg.body.log_DIST.covariance = buf.distance_sensor.covariance;
+				log_msg.body.log_DIST.variance = buf.distance_sensor.variance;
 				LOGBUFFER_WRITE_AND_COUNT(DIST);
 			}
 

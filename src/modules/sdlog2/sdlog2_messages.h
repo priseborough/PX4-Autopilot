@@ -303,7 +303,7 @@ struct log_DIST_s {
 	uint8_t type;
 	uint8_t orientation;
 	float current_distance;
-	float covariance;
+	float variance;
 };
 
 /* LOG IMU1 and IMU2 MSGs consume IDs 22 and 23 */

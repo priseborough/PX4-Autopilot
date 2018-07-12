@@ -3570,7 +3570,7 @@ protected:
 			msg.min_distance = dist_sensor.min_distance * 100.0f; /* m to cm */
 			msg.max_distance = dist_sensor.max_distance * 100.0f; /* m to cm */
 			msg.current_distance = dist_sensor.current_distance * 100.0f; /* m to cm */
-			msg.covariance = dist_sensor.covariance;
+			msg.covariance = dist_sensor.variance;
 
 			mavlink_msg_distance_sensor_send_struct(_mavlink->get_channel(), &msg);
 

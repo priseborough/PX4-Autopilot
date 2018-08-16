@@ -691,6 +691,14 @@ void Ekf2::run()
 	vehicle_status_s vehicle_status = {};
 	sensor_selection_s sensor_selection = {};
 
+	// get heading offset required for use of GPS yaw
+	param_t handle = param_find("GPS_YAW_OFFSET");
+	float gps_yaw_offset = 0.0f;
+	if (handle != PARAM_INVALID) {
+		param_get(handle, &gps_yaw_offset);
+		gps_yaw_offset = matrix::wrap_pi(math::radians(gps_yaw_offset));
+	}
+
 	while (!should_exit()) {
 		int ret = px4_poll(fds, sizeof(fds) / sizeof(fds[0]), 1000);
 
@@ -951,6 +959,8 @@ void Ekf2::run()
 				_gps_state[0].lat = gps.lat;
 				_gps_state[0].lon = gps.lon;
 				_gps_state[0].alt = gps.alt;
+				_gps_state[0].yaw = gps.heading;
+				_gps_state[0].yaw_offset = gps_yaw_offset;
 				_gps_state[0].fix_type = gps.fix_type;
 				_gps_state[0].eph = gps.eph;
 				_gps_state[0].epv = gps.epv;
@@ -980,6 +990,8 @@ void Ekf2::run()
 				_gps_state[1].lat = gps.lat;
 				_gps_state[1].lon = gps.lon;
 				_gps_state[1].alt = gps.alt;
+				_gps_state[1].yaw_offset = gps_yaw_offset;
+				_gps_state[1].fix_type = gps.fix_type;
 				_gps_state[1].fix_type = gps.fix_type;
 				_gps_state[1].eph = gps.eph;
 				_gps_state[1].epv = gps.epv;
@@ -2222,6 +2234,10 @@ void Ekf2::calc_gps_blend_output()
 	_gps_output[GPS_BLENDED_INSTANCE].gdop		= _gps_blended_state.gdop;
 	_gps_output[GPS_BLENDED_INSTANCE].nsats		= _gps_blended_state.nsats;
 	_gps_output[GPS_BLENDED_INSTANCE].vel_ned_valid	= _gps_blended_state.vel_ned_valid;
+
+	// No suppoort for blending of yaw data at the moment
+	_gps_output[GPS_BLENDED_INSTANCE].yaw = NAN;
+	_gps_output[GPS_BLENDED_INSTANCE].yaw_offset = 0.0f;
 
 }
 

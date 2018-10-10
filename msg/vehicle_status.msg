@@ -80,3 +80,9 @@ uint8 failure_detector_status			# Bitmask containing FailureDetector status [0, 
 uint32 onboard_control_sensors_present
 uint32 onboard_control_sensors_enabled
 uint32 onboard_control_sensors_health
+
+# airspeed fault and airspeed use status
+bool aspd_check_failing		# true when aiespeed ocnsistency checks are failing
+bool aspd_fault_declared	# true when an airspeed fault has been declared
+bool aspd_use_inhibit		# true if switching to a non-airspeed control mode has been requested
+bool aspd_fail_rtl		# true if airspeed failure invoked RTL has been requested

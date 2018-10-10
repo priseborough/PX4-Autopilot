@@ -769,3 +769,45 @@ PARAM_DEFINE_INT32(COM_FLIGHT_UUID, 0);
  * @group Mission
  */
 PARAM_DEFINE_INT32(COM_TAKEOFF_ACT, 0);
+
+/**
+ * Airspeed Consistency Threshold.
+ *
+ * This sets the minimum airspeed inconsistency required to trigger a failsafe. Increase to make the check less sensitive, decrease to make it more sensitive.
+ *
+ * @min 0.5
+ * @max 2.0
+ * @group Commander
+ */
+PARAM_DEFINE_FLOAT(COM_TAS_FS_INNOV, 1.0f);
+
+/**
+ * Delay before stopping use of airspeed sensor if checks indicate sensor is bad.
+ *
+ * @unit sec
+ * @group Commander
+ * @min 1
+ * @max 10
+ */
+PARAM_DEFINE_INT32(COM_TAS_FS_T1, 3);
+
+/**
+ * Delay before switching back to using airspeed sensor if checks indicate sensor is good.
+ *
+ * @unit sec
+ * @group Commander
+ * @min 10
+ * @max 1000
+ */
+PARAM_DEFINE_INT32(COM_TAS_FS_T2, 100);
+
+/**
+ * Failsafe action when bad airspeed measurements are detected
+ *
+ * @value 0 log a message
+ * @value 1 log a message, warn the user
+ * @value 2 log a message, warn the user, switch to non-airspeed TECS mode
+ * @value 3 log a message, warn the user, switch to non-airspeed TECS mode, switch to Return mode
+ * @group Mission
+ */
+PARAM_DEFINE_INT32(COM_ASPD_FS_ACT, 0);

@@ -108,7 +108,13 @@ private:
 		(ParamInt<px4::params::COM_POS_FS_GAIN>) _failsafe_pos_gain,
 
 		(ParamInt<px4::params::COM_LOW_BAT_ACT>) _low_bat_action,
-		(ParamFloat<px4::params::COM_DISARM_LAND>) _disarm_when_landed_timeout
+		(ParamFloat<px4::params::COM_DISARM_LAND>) _disarm_when_landed_timeout,
+
+		(ParamFloat<px4::params::COM_TAS_FS_INNOV>) _tas_innov_threshold,
+		(ParamInt<px4::params::COM_TAS_FS_T1>) _tas_use_stop_delay,
+		(ParamInt<px4::params::COM_TAS_FS_T2>) _tas_use_start_delay,
+		(ParamInt<px4::params::COM_ASPD_FS_ACT>) _airspeed_fail_action
+
 	)
 
 	const int64_t POSVEL_PROBATION_MIN = 1_s;	/**< minimum probation duration (usec) */
@@ -128,6 +134,15 @@ private:
 	hrt_abstime	_time_last_innov_pass{0};	/**< last time velocity innovations passed */
 	bool		_nav_test_passed{false};	/**< true if the post takeoff navigation test has passed */
 	bool		_nav_test_failed{false};	/**< true if the post takeoff navigation test has failed */
+
+	/* class variables used to check for airspeed sensor failure */
+	bool		_tas_check_fail{false};	/**< true when airspeed innovations have failed consistency checks */
+	hrt_abstime	_time_last_tas_pass{0};		/**< last time innovation checks passed */
+	hrt_abstime	_time_last_tas_fail{0};		/**< last time innovation checks failed */
+	const hrt_abstime TAS_INNOV_FAIL_DELAY = 1_s;	/**< time required for innovation levels to pass or fail (usec) */
+	bool		_tas_use_inhibit{false};	/**< true when the commander has instructed the control loops to not use airspeed data */
+	hrt_abstime	_time_tas_good_declared{0};		/**< time TAS use was started (uSec) */
+	hrt_abstime	_time_tas_bad_declared{0};		/**< time TAS use was stopped (uSec) */
 
 	FailureDetector _failure_detector;
 	bool _failure_detector_termination_printed{false};
@@ -179,6 +194,7 @@ private:
 	} _telemetry[ORB_MULTI_MAX_INSTANCES];
 
 	void estimator_check(bool *status_changed);
+	void airspeed_use_check();
 
 	int _battery_sub{-1};
 	uint8_t _battery_warning{battery_status_s::BATTERY_WARNING_NONE};

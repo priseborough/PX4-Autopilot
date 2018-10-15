@@ -4127,7 +4127,7 @@ void Commander::airspeed_use_check()
 
 	// Do actions based on value of COM_ASPD_FS_ACT parameter
 	switch (_airspeed_fail_action.get()) {
-	case 3: // log a message, warn the user, switch to non-airspeed TECS mode, switch to Return mode
+	case 4: // log a message, warn the user, switch to non-airspeed TECS mode, switch to Return mode
 		{
 			if (fault_declared) {
 				status.aspd_fault_declared = true;
@@ -4148,7 +4148,7 @@ void Commander::airspeed_use_check()
 			}
 			return;
 		}
-	case 2: // log a message, warn the user, switch to non-airspeed TECS mode
+	case 3: // log a message, warn the user, switch to non-airspeed TECS mode
 		{
 			if (fault_declared) {
 				mavlink_log_critical(&mavlink_log_pub, "AIRSPEED SENSOR FAILED - stopping use");
@@ -4163,7 +4163,7 @@ void Commander::airspeed_use_check()
 			}
 			return;
 		}
-	case 1: // log a message, warn the user
+	case 2: // log a message, warn the user
 		{
 			if (fault_declared) {
 				mavlink_log_critical(&mavlink_log_pub, "AIRSPEED SENSOR FAILED");
@@ -4178,7 +4178,7 @@ void Commander::airspeed_use_check()
 			}
 			return;
 		}
-	case 0: // log a message
+	case 1: // log a message
 		{
 			if (fault_declared) {
 				mavlink_log_info(&mavlink_log_pub, "AIRSPEED SENSOR FAILED");

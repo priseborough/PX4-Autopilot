@@ -86,3 +86,4 @@ bool aspd_check_failing		# true when aiespeed ocnsistency checks are failing
 bool aspd_fault_declared	# true when an airspeed fault has been declared
 bool aspd_use_inhibit		# true if switching to a non-airspeed control mode has been requested
 bool aspd_fail_rtl		# true if airspeed failure invoked RTL has been requested
+float32 load_factor_ratio	# ratio of measured to erodynamic load factor limit. Greater than 1 indicates airspeed low error condition.

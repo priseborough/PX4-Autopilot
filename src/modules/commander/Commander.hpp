@@ -61,6 +61,8 @@
 #include <uORB/topics/vehicle_command.h>
 #include <uORB/topics/vehicle_global_position.h>
 #include <uORB/topics/vehicle_local_position.h>
+#include <uORB/topics/sensor_combined.h>
+#include <uORB/topics/airspeed.h>
 
 using math::constrain;
 using uORB::Publication;
@@ -113,7 +115,8 @@ private:
 		(ParamFloat<px4::params::COM_TAS_FS_INNOV>) _tas_innov_threshold,
 		(ParamInt<px4::params::COM_TAS_FS_T1>) _tas_use_stop_delay,
 		(ParamInt<px4::params::COM_TAS_FS_T2>) _tas_use_start_delay,
-		(ParamInt<px4::params::COM_ASPD_FS_ACT>) _airspeed_fail_action
+		(ParamInt<px4::params::COM_ASPD_FS_ACT>) _airspeed_fail_action,
+		(ParamFloat<px4::params::COM_ASPD_STALL>) _airspeed_stall
 
 	)
 
@@ -143,6 +146,7 @@ private:
 	bool		_tas_use_inhibit{false};	/**< true when the commander has instructed the control loops to not use airspeed data */
 	hrt_abstime	_time_tas_good_declared{0};		/**< time TAS use was started (uSec) */
 	hrt_abstime	_time_tas_bad_declared{0};		/**< time TAS use was stopped (uSec) */
+//	float _load_factor_ratio = 0.0f;		/** ratio of normal load factor to maximum calculated using airspeed and stall speed */
 
 	FailureDetector _failure_detector;
 	bool _failure_detector_termination_printed{false};
@@ -199,6 +203,7 @@ private:
 	int _battery_sub{-1};
 	uint8_t _battery_warning{battery_status_s::BATTERY_WARNING_NONE};
 	float _battery_current{0.0f};
+	bool _engine_thrust_high = false;
 
 	void battery_status_check();
 
@@ -208,6 +213,12 @@ private:
 	Subscription<mission_result_s>			_mission_result_sub{ORB_ID(mission_result)};
 	Subscription<vehicle_global_position_s>		_global_position_sub{ORB_ID(vehicle_global_position)};
 	Subscription<vehicle_local_position_s>		_local_position_sub{ORB_ID(vehicle_local_position)};
+	Subscription<sensor_combined_s>			_sensor_combined_sub{ORB_ID(sensor_combined)};
+	Subscription<airspeed_s>			_airspeed_sub{ORB_ID(airspeed)};
+
+	struct airspeed_s _airspeed = {};
+	struct sensor_combined_s _sensor_combined = {};
+
 };
 
 #endif /* COMMANDER_HPP_ */

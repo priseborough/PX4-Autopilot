@@ -773,7 +773,7 @@ PARAM_DEFINE_INT32(COM_TAKEOFF_ACT, 0);
 /**
  * Airspeed Consistency Threshold.
  *
- * This sets the minimum airspeed inconsistency required to trigger a failsafe. Increase to make the check less sensitive, decrease to make it more sensitive.
+ * This scales the minimum airspeed inconsistency required to trigger a failsafe. Increase to make the check less sensitive, decrease to make it more sensitive.
  *
  * @min 0.5
  * @max 2.0
@@ -811,3 +811,13 @@ PARAM_DEFINE_INT32(COM_TAS_FS_T2, 100);
  * @group Mission
  */
 PARAM_DEFINE_INT32(COM_ASPD_FS_ACT, 0);
+
+/**
+ * Stall airspeed.
+ *
+ * This is the minimum airpeed that the wing can produce 1g of lift.
+ *
+ * @group Commander
+ * @unit m/s
+ */
+PARAM_DEFINE_FLOAT(COM_ASPD_STALL, 10.0f);

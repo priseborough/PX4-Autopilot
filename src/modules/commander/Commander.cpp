@@ -108,6 +108,8 @@
 #include <uORB/topics/vehicle_status_flags.h>
 #include <uORB/topics/vtol_vehicle_status.h>
 #include <uORB/uORB.h>
+#include <uORB/topics/airspeed.h>
+#include <uORB/topics/sensor_combined.h>
 
 typedef enum VEHICLE_MODE_FLAG
 {
@@ -2128,6 +2130,7 @@ Commander::run()
 		// engine failure detection
 		// TODO: move out of commander
 		orb_check(actuator_controls_sub, &updated);
+		actuator_controls_s actuator_controls = {};
 
 		if (updated) {
 			/* Check engine failure
@@ -2136,7 +2139,6 @@ Commander::run()
 			if (!status_flags.circuit_breaker_engaged_enginefailure_check &&
 			    !status.is_rotary_wing && !status.is_vtol && armed.armed) {
 
-				actuator_controls_s actuator_controls = {};
 				orb_copy(ORB_ID_VEHICLE_ATTITUDE_CONTROLS, actuator_controls_sub, &actuator_controls);
 
 				const float throttle = actuator_controls.control[actuator_controls_s::INDEX_THROTTLE];
@@ -2157,6 +2159,8 @@ Commander::run()
 						PX4_ERR("Engine Failure");
 						set_health_flags(subsystem_info_s::SUBSYSTEM_TYPE_MOTORCONTROL, true, true, false, status);
 					}
+				} else {
+					_engine_thrust_high = (throttle > ef_throttle_thres) && (current2throttle > ef_current2throttle_thres);
 				}
 
 			} else {
@@ -4081,21 +4085,41 @@ void Commander::airspeed_use_check()
 		status.aspd_use_inhibit = false;
 		status.aspd_fail_rtl = false;
 	} else {
-		//  Decide if the control loops should be using the airspeed data bsed on the length of time the
+		// The vehicle is flying so use the status of the airspeed innovation check '_tas_check_fail' in
+		// addition to a sanity check using airspeed and load factor.
+
+		//
+		_airspeed_sub.update();
+		_airspeed = _airspeed_sub.get();
+		_sensor_combined_sub.update();
+		_sensor_combined = _sensor_combined_sub.get();
+		float max_lift_ratio = _airspeed.indicated_airspeed_m_s /fmaxf(_airspeed_stall.get(),1.0f);
+		max_lift_ratio *= max_lift_ratio;
+		status.load_factor_ratio = 0.95f * status.load_factor_ratio - 0.05f * (_sensor_combined.accelerometer_m_s2[2] / 9.80665f) / max_lift_ratio;
+		status.load_factor_ratio = math::constrain(status.load_factor_ratio, 0.25f, 2.0f);
+		bool load_factor_ratio_fail = status.load_factor_ratio > 1.1f;
+
+		//status.load_factor_ratio = status.load_factor_ratio;
+
+		//  Decide if the control loops should be using the airspeed data based on the length of time the
 		// airspeed data has been declared bad
-		if (_tas_check_fail) {
+		if (_tas_check_fail || load_factor_ratio_fail) {
+			// either load factor or EKF innvoation test failure can declare the airspeed bad
 			_time_tas_bad_declared = hrt_absolute_time();
 			status.aspd_check_failing = true;
-		} else {
+		} else if (!_tas_check_fail && !load_factor_ratio_fail) {
+			// both load factor and EKF innvoation tests must pass to declare airspeed good
 			_time_tas_good_declared = hrt_absolute_time();
 			status.aspd_check_failing = false;
 		}
-		if (!_tas_use_inhibit &&
-		(hrt_absolute_time() - _time_tas_good_declared) > 1000000 * (hrt_abstime)_tas_use_stop_delay.get()) {
+		if (!_tas_use_inhibit) {
+			bool both_checks_failed = _tas_check_fail && load_factor_ratio_fail;
+			bool single_check_fail_timeout = (hrt_absolute_time() - _time_tas_good_declared) > 1000000 * (hrt_abstime)_tas_use_stop_delay.get();
+			if (both_checks_failed || single_check_fail_timeout) {
 			_tas_use_inhibit = true;
 			fault_declared = true;
-		} else if (_tas_use_inhibit &&
-		(hrt_absolute_time() - _time_tas_bad_declared) > 1000000 * (hrt_abstime)_tas_use_start_delay.get()) {
+			}
+		} else if ((hrt_absolute_time() - _time_tas_bad_declared) > 1000000 * (hrt_abstime)_tas_use_start_delay.get()) {
 			_tas_use_inhibit = false;
 			fault_cleared = true;
 		}

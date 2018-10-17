@@ -4084,11 +4084,25 @@ void Commander::airspeed_use_check()
 		status.aspd_fault_declared = false;
 		status.aspd_use_inhibit = false;
 		status.aspd_fail_rtl = false;
+		_time_last_airspeed = hrt_absolute_time();
 	} else {
 		// The vehicle is flying so use the status of the airspeed innovation check '_tas_check_fail' in
-		// addition to a sanity check using airspeed and load factor.
+		// addition to a sanity check using airspeed and load factor and a missing sensor data check.
 
-		//
+		// Check if sensor data is missing - assume a minimum 5Hz data rate.
+		bool data_missing = false;
+		if ((hrt_absolute_time() -_time_last_airspeed) > 200000) {
+			data_missing = true;
+		}
+
+		// Declare data stopped if not received for longer than 1 second
+		bool data_stopped = false;
+		if ((hrt_absolute_time() -_time_last_airspeed) > 1000000) {
+			data_stopped = true;
+		}
+		_time_last_airspeed = hrt_absolute_time();
+
+		// Check if the airpeed reading is lower than physically possible given the load factor
 		_airspeed_sub.update();
 		_airspeed = _airspeed_sub.get();
 		_sensor_combined_sub.update();
@@ -4099,25 +4113,29 @@ void Commander::airspeed_use_check()
 		status.load_factor_ratio = math::constrain(status.load_factor_ratio, 0.25f, 2.0f);
 		bool load_factor_ratio_fail = status.load_factor_ratio > 1.1f;
 
-		//status.load_factor_ratio = status.load_factor_ratio;
-
 		//  Decide if the control loops should be using the airspeed data based on the length of time the
 		// airspeed data has been declared bad
-		if (_tas_check_fail || load_factor_ratio_fail) {
-			// either load factor or EKF innvoation test failure can declare the airspeed bad
+		if (_tas_check_fail || load_factor_ratio_fail || data_missing) {
+			// either load factor or EKF innovation or missing data test failure can declare the airspeed bad
 			_time_tas_bad_declared = hrt_absolute_time();
 			status.aspd_check_failing = true;
-		} else if (!_tas_check_fail && !load_factor_ratio_fail) {
-			// both load factor and EKF innvoation tests must pass to declare airspeed good
+		} else if (!_tas_check_fail && !load_factor_ratio_fail && !data_missing) {
+			// All checks must pass to declare airspeed good
 			_time_tas_good_declared = hrt_absolute_time();
 			status.aspd_check_failing = false;
 		}
 		if (!_tas_use_inhibit) {
+			// A simultaneous load factor and innovaton check fail makes it more likely that a large
+			// airspeed meaurement fault has developed, so a fault should be declared immediately
 			bool both_checks_failed = _tas_check_fail && load_factor_ratio_fail;
+
+			// Because the innovation, load factor and data missing checks are subject to short duration false positives
+			// a timeout period is applied.
 			bool single_check_fail_timeout = (hrt_absolute_time() - _time_tas_good_declared) > 1000000 * (hrt_abstime)_tas_use_stop_delay.get();
-			if (both_checks_failed || single_check_fail_timeout) {
-			_tas_use_inhibit = true;
-			fault_declared = true;
+
+			if (data_stopped || both_checks_failed || single_check_fail_timeout) {
+				_tas_use_inhibit = true;
+				fault_declared = true;
 			}
 		} else if ((hrt_absolute_time() - _time_tas_bad_declared) > 1000000 * (hrt_abstime)_tas_use_start_delay.get()) {
 			_tas_use_inhibit = false;
@@ -4135,13 +4153,13 @@ void Commander::airspeed_use_check()
 				status.aspd_fail_rtl = true;
 				// let us send the critical message even if already in RTL
 				if (TRANSITION_DENIED != main_state_transition(status, commander_state_s::MAIN_STATE_AUTO_RTL, status_flags, &internal_state)) {
-					mavlink_log_critical(&mavlink_log_pub, "AIRSPEED SENSOR FAILED - stopping use and returning");
+					mavlink_log_critical(&mavlink_log_pub, "AIRSPEED DATA BAD - stopping use and returning");
 
 				} else {
-					mavlink_log_emergency(&mavlink_log_pub, "AIRSPEED SENSOR FAILED - stopping use, return failed");
+					mavlink_log_emergency(&mavlink_log_pub, "AIRSPEED DATA BAD - stopping use, return failed");
 				}
 			} else if (fault_cleared) {
-				mavlink_log_critical(&mavlink_log_pub, "AIRSPEED SENSOR RECOVERED - starting use");
+				mavlink_log_critical(&mavlink_log_pub, "AIRSPEED DATA GOOD - restarting use");
 				status.aspd_fault_declared = false;
 				status.aspd_use_inhibit = false;
 				status.aspd_fail_rtl = false;
@@ -4151,12 +4169,13 @@ void Commander::airspeed_use_check()
 	case 3: // log a message, warn the user, switch to non-airspeed TECS mode
 		{
 			if (fault_declared) {
-				mavlink_log_critical(&mavlink_log_pub, "AIRSPEED SENSOR FAILED - stopping use");
+				if
+				mavlink_log_critical(&mavlink_log_pub, "AIRSPEED DATA BAD - stopping use");
 				status.aspd_fault_declared = true;
 				status.aspd_use_inhibit = true;
 				status.aspd_fail_rtl = false;
 			} else if (fault_cleared) {
-				mavlink_log_critical(&mavlink_log_pub, "AIRSPEED SENSOR RECOVERED - starting use");
+				mavlink_log_critical(&mavlink_log_pub, "AIRSPEED DATA GOOD - restarting use");
 				status.aspd_fault_declared = false;
 				status.aspd_use_inhibit = false;
 				status.aspd_fail_rtl = false;
@@ -4166,12 +4185,12 @@ void Commander::airspeed_use_check()
 	case 2: // log a message, warn the user
 		{
 			if (fault_declared) {
-				mavlink_log_critical(&mavlink_log_pub, "AIRSPEED SENSOR FAILED");
+				mavlink_log_critical(&mavlink_log_pub, "AIRSPEED DATA BAD");
 				status.aspd_fault_declared = true;
 				status.aspd_use_inhibit = false;
 				status.aspd_fail_rtl = false;
 			} else if (fault_cleared) {
-				mavlink_log_critical(&mavlink_log_pub, "AIRSPEED SENSOR RECOVERED");
+				mavlink_log_critical(&mavlink_log_pub, "AIRSPEED DATA GOOD");
 				status.aspd_fault_declared = false;
 				status.aspd_use_inhibit = false;
 				status.aspd_fail_rtl = false;
@@ -4181,12 +4200,12 @@ void Commander::airspeed_use_check()
 	case 1: // log a message
 		{
 			if (fault_declared) {
-				mavlink_log_info(&mavlink_log_pub, "AIRSPEED SENSOR FAILED");
+				mavlink_log_info(&mavlink_log_pub, "AIRSPEED DATA BAD");
 				status.aspd_fault_declared = true;
 				status.aspd_use_inhibit = false;
 				status.aspd_fail_rtl = false;
 			} else if (fault_cleared) {
-				mavlink_log_info(&mavlink_log_pub, "AIRSPEED SENSOR RECOVERED");
+				mavlink_log_info(&mavlink_log_pub, "AIRSPEED DATA GOOD");
 				status.aspd_fault_declared = false;
 				status.aspd_use_inhibit = false;
 				status.aspd_fail_rtl = false;

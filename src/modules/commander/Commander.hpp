@@ -144,9 +144,9 @@ private:
 	hrt_abstime	_time_last_tas_fail{0};		/**< last time innovation checks failed */
 	const hrt_abstime TAS_INNOV_FAIL_DELAY = 1_s;	/**< time required for innovation levels to pass or fail (usec) */
 	bool		_tas_use_inhibit{false};	/**< true when the commander has instructed the control loops to not use airspeed data */
-	hrt_abstime	_time_tas_good_declared{0};		/**< time TAS use was started (uSec) */
-	hrt_abstime	_time_tas_bad_declared{0};		/**< time TAS use was stopped (uSec) */
-//	float _load_factor_ratio = 0.0f;		/** ratio of normal load factor to maximum calculated using airspeed and stall speed */
+	hrt_abstime	_time_tas_good_declared{0};	/**< time TAS use was started (uSec) */
+	hrt_abstime	_time_tas_bad_declared{0};	/**< time TAS use was stopped (uSec) */
+	hrt_abstime	_time_last_airspeed{0};		/**< time last airspeed measurement was received (uSec) */
 
 	FailureDetector _failure_detector;
 	bool _failure_detector_termination_printed{false};

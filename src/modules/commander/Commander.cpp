@@ -4085,6 +4085,7 @@ void Commander::airspeed_use_check()
 		status.aspd_use_inhibit = false;
 		status.aspd_fail_rtl = false;
 		_time_last_airspeed = hrt_absolute_time();
+		_airspeed_fault_type = new(char[7]);
 	} else {
 		// The vehicle is flying so use the status of the airspeed innovation check '_tas_check_fail' in
 		// addition to a sanity check using airspeed and load factor and a missing sensor data check.
@@ -4126,7 +4127,7 @@ void Commander::airspeed_use_check()
 		}
 		if (!_tas_use_inhibit) {
 			// A simultaneous load factor and innovaton check fail makes it more likely that a large
-			// airspeed meaurement fault has developed, so a fault should be declared immediately
+			// airspeed measurement fault has developed, so a fault should be declared immediately
 			bool both_checks_failed = _tas_check_fail && load_factor_ratio_fail;
 
 			// Because the innovation, load factor and data missing checks are subject to short duration false positives
@@ -4136,6 +4137,11 @@ void Commander::airspeed_use_check()
 			if (data_stopped || both_checks_failed || single_check_fail_timeout) {
 				_tas_use_inhibit = true;
 				fault_declared = true;
+				if (data_stopped || data_missing) {
+					strcpy(_airspeed_fault_type, "MISSING");
+				} else  {
+					strcpy(_airspeed_fault_type, "FAULTY ");
+				}
 			}
 		} else if ((hrt_absolute_time() - _time_tas_bad_declared) > 1000000 * (hrt_abstime)_tas_use_start_delay.get()) {
 			_tas_use_inhibit = false;
@@ -4153,10 +4159,10 @@ void Commander::airspeed_use_check()
 				status.aspd_fail_rtl = true;
 				// let us send the critical message even if already in RTL
 				if (TRANSITION_DENIED != main_state_transition(status, commander_state_s::MAIN_STATE_AUTO_RTL, status_flags, &internal_state)) {
-					mavlink_log_critical(&mavlink_log_pub, "AIRSPEED DATA BAD - stopping use and returning");
+					mavlink_log_critical(&mavlink_log_pub, "AIRSPEED DATA %s - stopping use and returning", _airspeed_fault_type);
 
 				} else {
-					mavlink_log_emergency(&mavlink_log_pub, "AIRSPEED DATA BAD - stopping use, return failed");
+					mavlink_log_emergency(&mavlink_log_pub, "AIRSPEED DATA  %s - stopping use, return failed", _airspeed_fault_type);
 				}
 			} else if (fault_cleared) {
 				mavlink_log_critical(&mavlink_log_pub, "AIRSPEED DATA GOOD - restarting use");
@@ -4169,8 +4175,7 @@ void Commander::airspeed_use_check()
 	case 3: // log a message, warn the user, switch to non-airspeed TECS mode
 		{
 			if (fault_declared) {
-				if
-				mavlink_log_critical(&mavlink_log_pub, "AIRSPEED DATA BAD - stopping use");
+				mavlink_log_critical(&mavlink_log_pub, "AIRSPEED DATA  %s  - stopping use", _airspeed_fault_type);
 				status.aspd_fault_declared = true;
 				status.aspd_use_inhibit = true;
 				status.aspd_fail_rtl = false;
@@ -4185,7 +4190,7 @@ void Commander::airspeed_use_check()
 	case 2: // log a message, warn the user
 		{
 			if (fault_declared) {
-				mavlink_log_critical(&mavlink_log_pub, "AIRSPEED DATA BAD");
+				mavlink_log_critical(&mavlink_log_pub, "AIRSPEED DATA %s", _airspeed_fault_type);
 				status.aspd_fault_declared = true;
 				status.aspd_use_inhibit = false;
 				status.aspd_fail_rtl = false;
@@ -4200,7 +4205,7 @@ void Commander::airspeed_use_check()
 	case 1: // log a message
 		{
 			if (fault_declared) {
-				mavlink_log_info(&mavlink_log_pub, "AIRSPEED DATA BAD");
+				mavlink_log_info(&mavlink_log_pub, "AIRSPEED DATA %s", _airspeed_fault_type);
 				status.aspd_fault_declared = true;
 				status.aspd_use_inhibit = false;
 				status.aspd_fail_rtl = false;

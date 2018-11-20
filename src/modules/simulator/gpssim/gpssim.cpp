@@ -116,6 +116,10 @@ private:
 	int _fix_type;
 	int _num_sat;
 	int _noise_multiplier;
+	float _std_vxyz = 300.0f; // (m/s)
+	static constexpr float _vel_recovery_tconst = 0.5; // (s)
+	static constexpr float _std_vxyz_min = 0.3; // (m/s)
+	static constexpr float _std_vxyz_max = 2.5; // (m/s)
 
 	std::default_random_engine _gen;
 
@@ -273,6 +277,8 @@ GPSSIM::receive(int timeout)
 	static int64_t timestamp_last = 0;
 
 	if (gps.timestamp != timestamp_last) {
+		float dt = 1e-6f * (float)(gps.timestamp - timestamp_last);
+		dt = fmaxf(fminf(dt, 1.0f), 0.0f);
 		_report_gps_pos.timestamp = hrt_absolute_time();
 		_report_gps_pos.lat = gps.lat;
 		_report_gps_pos.lon = gps.lon;
@@ -286,6 +292,27 @@ GPSSIM::receive(int timeout)
 		_report_gps_pos.cog_rad = (float)(gps.cog) * 3.1415f / (100.0f * 180.0f);
 		_report_gps_pos.fix_type = gps.fix_type;
 		_report_gps_pos.satellites_used = gps.satellites_visible;
+
+		// model change in reported speed accuracy
+		// should be done on other side of interface in vehicle sensor sim, but MAVLink message does not support it.
+		if (_report_gps_pos.satellites_used < 4) {
+			// assume reported velocity error grows linearly at 2.0 m/s/s when GPS lock is lost
+			if (_std_vxyz < 300.0f) {
+				_std_vxyz += 2.0f * dt;
+			}
+			_report_gps_pos.vel_ned_valid = false;
+		} else {
+			_std_vxyz = fminf(_std_vxyz, _std_vxyz_max);
+			float alpha = fminf(dt * _vel_recovery_tconst, 1.0f);
+			float beta = 1.0f - alpha;
+			_std_vxyz = alpha * _std_vxyz_min + beta * _std_vxyz;
+			_report_gps_pos.vel_ned_valid = true;
+		}
+		_report_gps_pos.s_variance_m_s = _std_vxyz;
+		_report_gps_pos.hdop = 0.67f * _report_gps_pos.eph;
+		_report_gps_pos.vdop = 0.67f * _report_gps_pos.epv;
+		_report_gps_pos.c_variance_rad = _std_vxyz /
+				fmaxf(sqrtf(_report_gps_pos.vel_n_m_s * _report_gps_pos.vel_n_m_s + _report_gps_pos.vel_e_m_s * _report_gps_pos.vel_e_m_s), 0.001f);
 
 		timestamp_last = gps.timestamp;
 

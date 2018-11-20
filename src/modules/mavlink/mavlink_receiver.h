@@ -275,4 +275,11 @@ private:
 
 	MavlinkReceiver(const MavlinkReceiver &) = delete;
 	MavlinkReceiver operator=(const MavlinkReceiver &) = delete;
+
+	uint64_t _gps_timestamp_us = 0;
+	float _std_vxyz = 300.0f; // (m/s)
+	static constexpr float _vel_recovery_tconst = 0.5; // (s)
+	static constexpr float _std_vxyz_min = 0.3; // (m/s)
+	static constexpr float _std_vxyz_max = 2.5; // (m/s)
+
 };

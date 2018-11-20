@@ -2163,7 +2163,6 @@ MavlinkReceiver::handle_message_hil_gps(mavlink_message_t *msg)
 	mavlink_msg_hil_gps_decode(msg, &gps);
 
 	uint64_t timestamp = hrt_absolute_time();
-
 	struct vehicle_gps_position_s hil_gps = {};
 
 	hil_gps.timestamp_time_relative = 0;
@@ -2173,10 +2172,9 @@ MavlinkReceiver::handle_message_hil_gps(mavlink_message_t *msg)
 	hil_gps.lat = gps.lat;
 	hil_gps.lon = gps.lon;
 	hil_gps.alt = gps.alt;
+
 	hil_gps.eph = (float)gps.eph * 1e-2f; // from cm to m
 	hil_gps.epv = (float)gps.epv * 1e-2f; // from cm to m
-
-	hil_gps.s_variance_m_s = 0.1f;
 
 	hil_gps.vel_m_s = (float)gps.vel * 1e-2f; // from cm/s to m/s
 	hil_gps.vel_n_m_s = gps.vn * 1e-2f; // from cm to m
@@ -2190,6 +2188,23 @@ MavlinkReceiver::handle_message_hil_gps(mavlink_message_t *msg)
 
 	hil_gps.heading = NAN;
 	hil_gps.heading_offset = NAN;
+
+	// model change in reported speed accuracy
+	// should be done on other side of interface in vehicle sensor sim, but MAVLink message does not support it.
+	float dt = fmaxf(fminf(1e-6f * (float)(gps.time_usec - _gps_timestamp_us), 1.0f), 0.0f);
+	_gps_timestamp_us = gps.time_usec;
+	if (hil_gps.satellites_used < 4) {
+		// assume reported velocity error grows linearly at 2.0 m/s/s when GPS lock is lost
+		if (_std_vxyz < 300.0f) {
+			_std_vxyz += 2.0f * dt;
+		}
+	} else {
+		_std_vxyz = fminf(_std_vxyz, _std_vxyz_max);
+		float alpha = fminf(dt * _vel_recovery_tconst, 1.0f);
+		float beta = 1.0f - alpha;
+		_std_vxyz = alpha * _std_vxyz_min + beta * _std_vxyz;
+	}
+	hil_gps.s_variance_m_s = _std_vxyz;
 
 	if (_gps_pub == nullptr) {
 		_gps_pub = orb_advertise(ORB_ID(vehicle_gps_position), &hil_gps);

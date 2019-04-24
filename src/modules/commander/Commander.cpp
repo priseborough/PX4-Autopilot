@@ -4141,6 +4141,7 @@ void Commander::airspeed_use_check()
 				// integrate exceedance
 				_apsd_innov_integ_state += dt_s * (_estimator_status_sub.get().tas_test_ratio - _tas_innov_threshold.get());
 			}
+
 			status.arspd_check_level = _apsd_innov_integ_state;
 
 			if ((_estimator_status_sub.get().vel_test_ratio < 1.0f) && (_estimator_status_sub.get().mag_test_ratio < 1.0f)) {
@@ -4157,6 +4158,7 @@ void Commander::airspeed_use_check()
 				_tas_check_fail = (hrt_elapsed_time(&_time_last_tas_fail) < TAS_INNOV_FAIL_DELAY);
 			}
 		}
+
 		_time_last_aspd_innov_check = hrt_absolute_time();
 
 

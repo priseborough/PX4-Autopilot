@@ -1124,19 +1124,8 @@ void Ekf2::run()
 				distance_sensor_s range_finder;
 
 				if (_range_finder_subs[_range_finder_sub_index].copy(&range_finder)) {
-					// check distance sensor data quality
-					// TODO - move this check inside the ecl library
-					if (range_finder.signal_quality == 0) {
-						// use rng_gnd_clearance if on ground
-						if (_ekf.get_in_air_status()) {
-							range_finder_updated = false;
-
-						} else {
-							range_finder.current_distance = _param_ekf2_min_rng.get();
-						}
-					}
-
-					if (range_finder_updated) {
+					// don't use range finder is sensor quality is reported as 0
+					if (range_finder_updated && (range_finder.signal_quality > 0)) {
 						_ekf.setRangeData(range_finder.timestamp, range_finder.current_distance);
 					}
 

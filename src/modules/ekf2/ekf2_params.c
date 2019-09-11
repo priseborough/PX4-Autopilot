@@ -689,7 +689,7 @@ PARAM_DEFINE_FLOAT(EKF2_RNG_SFE, 0.05f);
 PARAM_DEFINE_FLOAT(EKF2_RNG_GATE, 5.0f);
 
 /**
- * Minimum valid range for the range finder
+ * Expected range finder reading when on ground.
  *
  * @group EKF2
  * @min 0.01

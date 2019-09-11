@@ -1124,8 +1124,8 @@ void Ekf2::run()
 				distance_sensor_s range_finder;
 
 				if (_range_finder_subs[_range_finder_sub_index].copy(&range_finder)) {
-					// don't use range finder is sensor quality is reported as 0
-					if (range_finder_updated && (range_finder.signal_quality > 0)) {
+					// don't use range finder if sensor quality is reported as 0
+					if (range_finder_updated && (range_finder.signal_quality != 0)) {
 						_ekf.setRangeData(range_finder.timestamp, range_finder.current_distance);
 					}
 

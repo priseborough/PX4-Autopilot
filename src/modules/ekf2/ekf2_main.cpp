@@ -1118,16 +1118,12 @@ void Ekf2::run()
 		}
 
 		if (_range_finder_sub_index >= 0) {
-			bool range_finder_updated = _range_finder_subs[_range_finder_sub_index].updated();
 
-			if (range_finder_updated) {
+			if (_range_finder_subs[_range_finder_sub_index].updated()) {
 				distance_sensor_s range_finder;
 
 				if (_range_finder_subs[_range_finder_sub_index].copy(&range_finder)) {
-					// don't use range finder if sensor quality is reported as 0
-					if (range_finder_updated && (range_finder.signal_quality != 0)) {
-						_ekf.setRangeData(range_finder.timestamp, range_finder.current_distance);
-					}
+						_ekf.setRangeData(range_finder.timestamp, range_finder.current_distance, range_finder.signal_quality);
 
 					// Save sensor limits reported by the rangefinder
 					_ekf.set_rangefinder_limits(range_finder.min_distance, range_finder.max_distance);

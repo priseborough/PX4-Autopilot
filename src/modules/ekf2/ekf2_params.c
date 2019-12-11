@@ -1403,3 +1403,69 @@ PARAM_DEFINE_FLOAT(EKF2_MOVE_TEST, 1.0f);
  * @reboot_required true
  */
 PARAM_DEFINE_FLOAT(EKF2_REQ_GPS_H, 10.0f);
+
+/**
+ * Yaw rate noise for EKF-GSF covariance prediction.
+ *
+ * @group EKF2
+ * @min 0.02
+ * @max 0.2
+ * @unit rad/s
+ * @decimal 2
+ */
+PARAM_DEFINE_FLOAT(EKF2_GSF_YAW_PN, 0.1f);
+
+/**
+ * Acceleration noise for EKF-GSF covariance prediction.
+ *
+ * @group EKF2
+ * @min 0.5
+ * @max 5.0
+ * @unit m/s/s
+ * @decimal 2
+ */
+PARAM_DEFINE_FLOAT(EKF2_GSF_ACC_PN, 2.0f);
+
+/**
+ * Tilt error to gyro correction gain for EKF-GSF AHRS calculation.
+ *
+ * @group EKF2
+ * @min 0.1
+ * @max 1.0
+ * @unit 1/s
+ * @decimal 2
+ */
+PARAM_DEFINE_FLOAT(EKF2_GSF_TILT_K, 0.4f);
+
+/**
+ * Gyro correction integral gain for EKF-GSF AHRS calculation.
+ *
+ * @group EKF2
+ * @min 0.0
+ * @max 0.1
+ * @unit 1/s
+ * @decimal 2
+ */
+PARAM_DEFINE_FLOAT(EKF2_GSF_TILT_KI, 0.04f);
+
+/**
+ * Minimum value of individual model weighting in EKF-GSF AHRS calculation.
+ *
+ * @group EKF2
+ * @min 0.0
+ * @max 0.05
+ * @decimal 3
+ */
+PARAM_DEFINE_FLOAT(EKF2_GSF_WGT_MIN, 0.0f);
+
+/**
+ * Default value of true airspeed used in EKF-GSF AHRS calculation.
+ * If no airspeed measurements are avalable, the EKF-GSF AHRS calculation will assume this value of true airspeed when compensating for centripetal acceleration during turns. Set to zero to disable centripetal acceleration compensation during fixed wing flight modes.
+ *
+ * @group EKF2
+ * @min 0.0
+ * @unit m/s
+ * @max 100.0
+ * @decimal 1
+ */
+PARAM_DEFINE_FLOAT(EKF2_GSF_TAS, 15.0f);

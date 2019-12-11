@@ -78,6 +78,8 @@
 #include <uORB/topics/vehicle_odometry.h>
 #include <uORB/topics/vehicle_status.h>
 #include <uORB/topics/wind_estimate.h>
+#include <uORB/topics/yaw_est_test_data.h>
+#include <uORB/topics/vehicle_status_flags.h>
 
 #include "Utility/PreFlightChecker.hpp"
 
@@ -132,6 +134,7 @@ private:
 
 	bool publish_attitude(const hrt_abstime &now);
 	bool publish_wind_estimate(const hrt_abstime &timestamp);
+	bool publish_test_data(const hrt_abstime &timestamp);
 
 	/*
 	 * Update the internal state estimate for a blended GPS solution that is a weighted average of the phsyical
@@ -241,6 +244,7 @@ private:
 	uORB::Subscription _sensor_selection_sub{ORB_ID(sensor_selection)};
 	uORB::Subscription _status_sub{ORB_ID(vehicle_status)};
 	uORB::Subscription _vehicle_land_detected_sub{ORB_ID(vehicle_land_detected)};
+	uORB::Subscription _vehicle_status_flags_sub{ORB_ID(vehicle_status_flags)};
 
 	uORB::SubscriptionCallbackWorkItem _sensor_combined_sub{this, ORB_ID(sensor_combined)};
 	static constexpr int MAX_SENSOR_COUNT = 3;
@@ -263,6 +267,7 @@ private:
 	sensor_selection_s		_sensor_selection{};
 	vehicle_land_detected_s		_vehicle_land_detected{};
 	vehicle_status_s		_vehicle_status{};
+	vehicle_status_flags_s		_vehicle_status_flags{};
 
 	uORB::Publication<ekf2_timestamps_s>			_ekf2_timestamps_pub{ORB_ID(ekf2_timestamps)};
 	uORB::Publication<ekf_gps_drift_s>			_ekf_gps_drift_pub{ORB_ID(ekf_gps_drift)};
@@ -278,6 +283,7 @@ private:
 	uORB::PublicationData<vehicle_local_position_s>		_vehicle_local_position_pub{ORB_ID(vehicle_local_position)};
 	uORB::PublicationData<vehicle_odometry_s>		_vehicle_visual_odometry_aligned_pub{ORB_ID(vehicle_visual_odometry_aligned)};
 	uORB::PublicationMulti<wind_estimate_s>			_wind_pub{ORB_ID(wind_estimate)};
+	uORB::PublicationMulti<yaw_est_test_data_s>		_yaw_est_pub{ORB_ID(yaw_est_test_data)};
 
 	Ekf _ekf;
 
@@ -525,7 +531,11 @@ private:
 		_param_ekf2_move_test,	///< scaling applied to IMU data thresholds used to determine if the vehicle is static or moving.
 
 		(ParamFloat<px4::params::EKF2_REQ_GPS_H>) _param_ekf2_req_gps_h, ///< Required GPS health time
-		(ParamExtInt<px4::params::EKF2_MAG_CHECK>) _param_ekf2_mag_check ///< Mag field strength check
+		(ParamExtInt<px4::params::EKF2_MAG_CHECK>) _param_ekf2_mag_check, ///< Mag field strength check
+
+		// Used by EKF-GSF experimental yaw estimator
+		(ParamExtFloat<px4::params::EKF2_GSF_TAS>)
+		_param_ekfgsf_tas_default	///< default value of true airspeed assumed during fixed wing operation
 
 	)
 
@@ -637,7 +647,8 @@ Ekf2::Ekf2(bool replay_mode):
 	_param_ekf2_pcoef_yn(_params->static_pressure_coef_yn),
 	_param_ekf2_pcoef_z(_params->static_pressure_coef_z),
 	_param_ekf2_move_test(_params->is_moving_scaler),
-	_param_ekf2_mag_check(_params->check_mag_strength)
+	_param_ekf2_mag_check(_params->check_mag_strength),
+	_param_ekfgsf_tas_default(_params->EKFGSF_tas_default)
 {
 	// initialise parameter cache
 	updateParams();
@@ -819,6 +830,11 @@ void Ekf2::Run()
 
 			// let the EKF know if the vehicle motion is that of a fixed wing (forward flight only relative to wind)
 			_ekf.set_is_fixed_wing(is_fixed_wing);
+		}
+
+		// Request emergency reset of EKF navigation states to yaw from EKF-GSF and velocity and position from GPS
+		if (_status_sub.update(&_vehicle_status_flags)) {
+			_ekf.requestEmergencyNavReset(_vehicle_status_flags.emergency_yaw_reset_counter);
 		}
 
 		// Always update sensor selction first time through if time stamp is non zero
@@ -1610,6 +1626,8 @@ void Ekf2::Run()
 
 			publish_wind_estimate(now);
 
+			publish_test_data(now);
+
 			if (!_mag_decl_saved && (_vehicle_status.arming_state == vehicle_status_s::ARMING_STATE_STANDBY)) {
 				_mag_decl_saved = update_mag_decl(_param_ekf2_mag_decl);
 			}
@@ -1782,6 +1800,26 @@ bool Ekf2::publish_attitude(const hrt_abstime &now)
 		// we do this by publishing an attitude with zero timestamp
 		vehicle_attitude_s att{};
 		_att_pub.publish(att);
+	}
+
+	return false;
+}
+
+bool Ekf2::publish_test_data(const hrt_abstime &timestamp)
+{
+	yaw_est_test_data_s yaw_est_test_data{};
+
+	if (_ekf.getDataEKFGSF(&yaw_est_test_data.yaw_composite, &yaw_est_test_data.yaw_variance,
+			       &yaw_est_test_data.yaw[0],
+			       &yaw_est_test_data.innov_vn[0], &yaw_est_test_data.innov_ve[0],
+			       &yaw_est_test_data.weight[0])) {
+
+		yaw_est_test_data.timestamp = timestamp;
+
+		_yaw_est_pub.publish(yaw_est_test_data);
+
+		return true;
+
 	}
 
 	return false;

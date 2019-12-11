@@ -36,3 +36,5 @@ bool usb_connected                                # status of the USB power supp
 
 bool avoidance_system_required					  # Set to true if avoidance system is enabled via COM_OBS_AVOID parameter
 bool avoidance_system_valid                       # Status of the obstacle avoidance system
+
+uint8 emergency_yaw_reset_counter	# increments when the commander is requesting the EKF perfomr and emergencey yaw reset

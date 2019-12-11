@@ -49,6 +49,7 @@
 #include <uORB/topics/vehicle_magnetometer.h>
 #include <uORB/topics/vehicle_status.h>
 #include <uORB/topics/vehicle_odometry.h>
+#include <uORB/topics/vehicle_status_flags.h>
 
 #include "ReplayEkf2.hpp"
 
@@ -95,8 +96,10 @@ ReplayEkf2::handleTopicUpdate(Subscription &sub, void *data, std::ifstream &repl
 
 		return true;
 
-	} else if (sub.orb_meta == ORB_ID(vehicle_status) || sub.orb_meta == ORB_ID(vehicle_land_detected)
-		   || sub.orb_meta == ORB_ID(vehicle_gps_position)) {
+	} else if (sub.orb_meta == ORB_ID(vehicle_status) ||
+			sub.orb_meta == ORB_ID(vehicle_status_flags) ||
+			sub.orb_meta == ORB_ID(vehicle_land_detected) ||
+			sub.orb_meta == ORB_ID(vehicle_gps_position)) {
 		return publishTopic(sub, data);
 	} // else: do not publish
 

@@ -289,11 +289,11 @@ PARAM_DEFINE_FLOAT(EKF2_GYR_B_NOISE, 1.0e-3f);
  *
  * @group EKF2
  * @min 0.0
- * @max 0.01
+ * @max 0.05
  * @unit m/s**3
  * @decimal 6
  */
-PARAM_DEFINE_FLOAT(EKF2_ACC_B_NOISE, 3.0e-3f);
+PARAM_DEFINE_FLOAT(EKF2_ACC_B_NOISE, 3.0e-2f);
 
 /**
  * Process noise for body magnetic field prediction.

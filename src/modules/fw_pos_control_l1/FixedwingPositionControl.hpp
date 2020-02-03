@@ -126,7 +126,7 @@ static constexpr float MANUAL_THROTTLE_CLIMBOUT_THRESH =
 static constexpr float ALTHOLD_EPV_RESET_THRESH = 5.0f;
 
 class FixedwingPositionControl final : public ModuleBase<FixedwingPositionControl>, public ModuleParams,
-	public px4::WorkItem
+		public px4::WorkItem
 {
 public:
 	FixedwingPositionControl();

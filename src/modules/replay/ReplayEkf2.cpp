@@ -49,6 +49,7 @@
 #include <uORB/topics/vehicle_magnetometer.h>
 #include <uORB/topics/vehicle_status.h>
 #include <uORB/topics/vehicle_odometry.h>
+#include <uORB/topics/vehicle_status_flags.h>
 
 #include "ReplayEkf2.hpp"
 
@@ -137,9 +138,10 @@ ReplayEkf2::onSubscriptionAdded(Subscription &sub, uint16_t msg_id)
 
 	// the main loop should only handle publication of the following topics, the sensor topics are
 	// handled separately in publishEkf2Topics()
-	sub.ignored = sub.orb_meta != ORB_ID(ekf2_timestamps) && sub.orb_meta != ORB_ID(vehicle_status)
-		      && sub.orb_meta != ORB_ID(vehicle_land_detected) &&
-		      (sub.orb_meta != ORB_ID(vehicle_gps_position) || sub.multi_id == 0);
+	sub.ignored = sub.orb_meta != ORB_ID(ekf2_timestamps) &&
+		      sub.orb_meta != ORB_ID(vehicle_status) &&
+		      sub.orb_meta != ORB_ID(vehicle_status_flags) &&
+		      sub.orb_meta != ORB_ID(vehicle_land_detected);
 }
 
 bool

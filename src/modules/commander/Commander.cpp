@@ -4259,7 +4259,6 @@ void Commander::estimator_check(bool *status_changed)
 		 * but rotary wing vehicles cannot so the position and velocity validity needs to be latched
 		 * to false after failure to prevent flyaway crashes */
 		if (run_quality_checks && status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING) {
-
 			if (status.arming_state == vehicle_status_s::ARMING_STATE_STANDBY) {
 				// reset flags and timer
 				_time_at_takeoff = hrt_absolute_time();
@@ -4271,28 +4270,44 @@ void Commander::estimator_check(bool *status_changed)
 				_time_at_takeoff = hrt_absolute_time();
 
 			} else {
-				// if nav status is unconfirmed, confirm yaw angle as passed after 30 seconds or achieving 5 m/s of speed
-				const bool sufficient_time = (hrt_elapsed_time(&_time_at_takeoff) > 30_s);
-				const bool sufficient_speed = (lpos.vx * lpos.vx + lpos.vy * lpos.vy > 25.0f);
+				// when in flight continue checking until nav is confirmed either passed or failed
+				if (!_nav_test_failed && !_nav_test_passed) {
+					// confirm yaw angle as passed after 30 seconds or achieving 5 m/s of speed
+					const bool sufficient_time = (hrt_elapsed_time(&_time_at_takeoff) > 30_s);
+					const bool sufficient_speed = (lpos.vx * lpos.vx + lpos.vy * lpos.vy > 25.0f);
+					if (sufficient_speed) {
+						_time_spd_check = hrt_absolute_time();
+					}
 
-				bool innovation_pass = estimator_status.vel_test_ratio < 1.0f && estimator_status.pos_test_ratio < 1.0f;
-
-				if (!_nav_test_failed) {
-					if (!_nav_test_passed) {
-						// pass if sufficient time or speed
-						if (sufficient_time || sufficient_speed) {
-							_nav_test_passed = true;
-						}
-
+					// pass if sufficient time or speed
+					if (sufficient_time || hrt_elapsed_time(&_time_spd_check) > 5_s) {
+						_nav_test_passed = true;
+					} else {
 						// record the last time the innovation check passed
+						bool innovation_pass = estimator_status.vel_test_ratio < 1.0f && estimator_status.pos_test_ratio < 1.0f;
 						if (innovation_pass) {
 							_time_last_innov_pass = hrt_absolute_time();
 						}
 
-						// if the innovation test has failed continuously, declare the nav as failed
-						if (hrt_elapsed_time(&_time_last_innov_pass) > 1_s) {
-							_nav_test_failed = true;
-							mavlink_log_emergency(&mavlink_log_pub, "Critical navigation failure! Check sensor calibration");
+						/*
+							If the innovation test has failed continuously:
+							First fail reset the nav using a backup yaw estimate that doesn't use magnetometer
+							and wait some additonal time to allow the filter to settle before faiing again.
+							Second and subsequent fails reset the nav using a backup yaw estimate that doesn't use magnetometer
+							Third and subsequent fails, declare the navigation failed
+						*/
+						uint64_t delay_us = ((status_flags.emergency_yaw_reset_counter > 0) ? 5_s : 1_s);
+						if (hrt_elapsed_time(&_time_last_innov_pass) > delay_us) {
+							const uint8_t max_yaw_reset_count = 2;
+							if (status_flags.emergency_yaw_reset_counter >= max_yaw_reset_count) {
+								_nav_test_failed = true;
+								status_flags.emergency_yaw_reset_counter++;
+								mavlink_log_emergency(&mavlink_log_pub, "Critical navigation failure! Check sensor calibration");
+							} else {
+								status_flags.emergency_yaw_reset_counter++;
+								_time_last_innov_pass = hrt_absolute_time();
+								mavlink_log_emergency(&mavlink_log_pub, "Critical navigation error! Commanding Yaw Reset");
+							}
 						}
 					}
 				}

@@ -1778,20 +1778,17 @@ bool Ekf2::publish_attitude(const sensor_combined_s &sensors, const hrt_abstime 
 bool Ekf2::publish_test_data(const hrt_abstime &timestamp)
 {
 	yaw_est_test_data_s yaw_est_test_data{};
-
-	if (_ekf.get_algo_test_data(&yaw_est_test_data.del_ang[0], &yaw_est_test_data.del_ang_dt,
-				    &yaw_est_test_data.del_vel[0], &yaw_est_test_data.del_vel_dt,
-				    &yaw_est_test_data.vel[0], &yaw_est_test_data.vel_err, &yaw_est_test_data.fuse_vel,
-				    &yaw_est_test_data.quat[0])) {
-		_ekf.getDataEKFGSF(&yaw_est_test_data.yaw_composite, &yaw_est_test_data.yaw[0],
-				   &yaw_est_test_data.innov_vn[0], &yaw_est_test_data.innov_ve[0],
-				   &yaw_est_test_data.weight[0]);
+	if (_ekf.getDataEKFGSF(&yaw_est_test_data.yaw_composite, &yaw_est_test_data.yaw_variance,
+			&yaw_est_test_data.yaw[0],
+			&yaw_est_test_data.innov_vn[0], &yaw_est_test_data.innov_ve[0],
+			&yaw_est_test_data.weight[0])) {
 
 		yaw_est_test_data.timestamp = timestamp;
 
 		_yaw_est_pub.publish(yaw_est_test_data);
 
 		return true;
+
 	}
 
 	return false;

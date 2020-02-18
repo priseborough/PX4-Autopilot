@@ -771,9 +771,9 @@ void Ekf2::Run()
 			_ekf.set_is_fixed_wing(is_fixed_wing);
 		}
 
-		// Request emergency reset o internal EKF-GSF
+		// Request emergency reset of EKF navigation states to yaw from EKF-GSF and velocity and position from GPS
 		if (_status_sub.update(&_vehicle_status_flags)) {
-			_ekf.request_ekfgsf_yaw_reset(_vehicle_status_flags.emergency_yaw_reset_counter);
+			_ekf.requestEmergencyNavReset(_vehicle_status_flags.emergency_yaw_reset_counter);
 		}
 
 		// Always update sensor selction first time through if time stamp is non zero

@@ -497,6 +497,7 @@ PARAM_DEFINE_INT32(EKF2_DECL_TYPE, 7);
  * @value 2 3-axis
  * @value 3 VTOL customn
  * @value 4 MC custom
+ * @valye 5 Not when in air
  * @reboot_required true
  */
 PARAM_DEFINE_INT32(EKF2_MAG_TYPE, 0);

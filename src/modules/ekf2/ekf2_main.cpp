@@ -865,7 +865,9 @@ void Ekf2::run()
 								    _mag_data_sum[2] *mag_sample_count_inv - _mag_bias_z.get()
 								   };
 
-					_ekf.setMagData(1000 * (uint64_t)mag_time_ms, mag_data_avg_ga);
+					if (vehicle_status.arming_state != vehicle_status_s::ARMING_STATE_ARMED) {
+						_ekf.setMagData(1000 * (uint64_t)mag_time_ms, mag_data_avg_ga);
+					}
 
 					_mag_time_ms_last_used = mag_time_ms;
 					_mag_time_sum_ms = 0;

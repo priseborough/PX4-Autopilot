@@ -249,9 +249,9 @@ CollisionPrevention::_addDistanceSensorData(distance_sensor_s &distance_sensor, 
 		float sensor_yaw_body_deg = math::degrees(wrap_2pi(sensor_yaw_body_rad));
 
 		// calculate the field of view boundary bin indices
-		int lower_bound = (int)floor((sensor_yaw_body_deg  - math::degrees(distance_sensor.h_fov / 2.0f)) /
+		int lower_bound = (int)floor((sensor_yaw_body_deg  - math::degrees(0.0f / 2.0f)) /
 					     INTERNAL_MAP_INCREMENT_DEG);
-		int upper_bound = (int)floor((sensor_yaw_body_deg  + math::degrees(distance_sensor.h_fov / 2.0f)) /
+		int upper_bound = (int)floor((sensor_yaw_body_deg  + math::degrees(0.0f / 2.0f)) /
 					     INTERNAL_MAP_INCREMENT_DEG);
 
 		// floor values above zero, ceil values below zero
@@ -362,7 +362,7 @@ CollisionPrevention::_sensorOrientationToYawOffset(const distance_sensor_s &dist
 		break;
 
 	case distance_sensor_s::ROTATION_CUSTOM:
-		offset = matrix::Eulerf(matrix::Quatf(distance_sensor.q)).psi();
+		// offset = matrix::Eulerf(matrix::Quatf(distance_sensor.q)).psi();
 		break;
 	}
 

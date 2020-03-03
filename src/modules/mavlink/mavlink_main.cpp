@@ -2271,16 +2271,13 @@ Mavlink::task_main(int argc, char *argv[])
 			if (_mode == MAVLINK_MODE_IRIDIUM) {
 
 				if (_transmitting_enabled &&
-				    status.high_latency_data_link_lost &&
+
 				    !_transmitting_enabled_commanded &&
 				    (_first_heartbeat_sent)) {
 
 					_transmitting_enabled = false;
 					mavlink_and_console_log_info(&_mavlink_log_pub, "Disable transmitting with IRIDIUM mavlink on device %s", _device_name);
 
-				} else if (!_transmitting_enabled && !status.high_latency_data_link_lost) {
-					_transmitting_enabled = true;
-					mavlink_and_console_log_info(&_mavlink_log_pub, "Enable transmitting with IRIDIUM mavlink on device %s", _device_name);
 				}
 			}
 		}

@@ -503,7 +503,7 @@ bool set_nav_state(vehicle_status_s *status, actuator_armed_s *armed, commander_
 
 		if (is_armed && check_invalid_pos_nav_state(status, old_failsafe, mavlink_log_pub, status_flags, false, true)) {
 			// nothing to do - everything done in check_invalid_pos_nav_state
-		} else if (status->engine_failure) {
+		} else if (false) {
 			status->nav_state = vehicle_status_s::NAVIGATION_STATE_AUTO_LANDENGFAIL;
 
 		} else if (status_flags.vtol_transition_failure) {
@@ -540,7 +540,7 @@ bool set_nav_state(vehicle_status_s *status, actuator_armed_s *armed, commander_
 	case commander_state_s::MAIN_STATE_AUTO_LOITER:
 
 		/* go into failsafe on a engine failure */
-		if (status->engine_failure) {
+		if (false) {
 			status->nav_state = vehicle_status_s::NAVIGATION_STATE_AUTO_LANDENGFAIL;
 
 		} else if (is_armed && check_invalid_pos_nav_state(status, old_failsafe, mavlink_log_pub, status_flags, false, true)) {
@@ -576,7 +576,7 @@ bool set_nav_state(vehicle_status_s *status, actuator_armed_s *armed, commander_
 
 		/* require global position and home, also go into failsafe on an engine failure */
 
-		if (status->engine_failure) {
+		if (false) {
 			status->nav_state = vehicle_status_s::NAVIGATION_STATE_AUTO_LANDENGFAIL;
 
 		} else if (is_armed && check_invalid_pos_nav_state(status, old_failsafe, mavlink_log_pub, status_flags, false, true)) {
@@ -591,7 +591,7 @@ bool set_nav_state(vehicle_status_s *status, actuator_armed_s *armed, commander_
 
 		/* require global position and home */
 
-		if (status->engine_failure) {
+		if (false) {
 			status->nav_state = vehicle_status_s::NAVIGATION_STATE_AUTO_LANDENGFAIL;
 
 		} else if (is_armed && check_invalid_pos_nav_state(status, old_failsafe, mavlink_log_pub, status_flags, false, true)) {
@@ -604,7 +604,7 @@ bool set_nav_state(vehicle_status_s *status, actuator_armed_s *armed, commander_
 		break;
 
 	case commander_state_s::MAIN_STATE_ORBIT:
-		if (status->engine_failure) {
+		if (false) {
 			// failsafe: on engine failure
 			status->nav_state = vehicle_status_s::NAVIGATION_STATE_AUTO_LANDENGFAIL;
 
@@ -652,7 +652,7 @@ bool set_nav_state(vehicle_status_s *status, actuator_armed_s *armed, commander_
 
 		/* require local position */
 
-		if (status->engine_failure) {
+		if (false) {
 			status->nav_state = vehicle_status_s::NAVIGATION_STATE_AUTO_LANDENGFAIL;
 
 		} else if (is_armed && check_invalid_pos_nav_state(status, old_failsafe, mavlink_log_pub, status_flags, false, false)) {
@@ -668,7 +668,7 @@ bool set_nav_state(vehicle_status_s *status, actuator_armed_s *armed, commander_
 
 		/* require local position */
 
-		if (status->engine_failure) {
+		if (false) {
 			status->nav_state = vehicle_status_s::NAVIGATION_STATE_AUTO_LANDENGFAIL;
 
 		} else if (is_armed && check_invalid_pos_nav_state(status, old_failsafe, mavlink_log_pub, status_flags, false, false)) {
@@ -684,7 +684,7 @@ bool set_nav_state(vehicle_status_s *status, actuator_armed_s *armed, commander_
 
 		/* must be rotary wing plus same requirements as normal landing */
 
-		if (status->engine_failure) {
+		if (false) {
 			status->nav_state = vehicle_status_s::NAVIGATION_STATE_AUTO_LANDENGFAIL;
 
 		} else if (is_armed && check_invalid_pos_nav_state(status, old_failsafe, mavlink_log_pub, status_flags, false, false)) {

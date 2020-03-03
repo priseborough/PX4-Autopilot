@@ -592,7 +592,7 @@ MavlinkReceiver::handle_message_optical_flow_rad(mavlink_message_t *msg)
 		d.type = 1;
 		d.id = distance_sensor_s::MAV_DISTANCE_SENSOR_ULTRASOUND;
 		d.orientation = distance_sensor_s::ROTATION_DOWNWARD_FACING;
-		d.variance = 0.0;
+		// d.variance = 0.0;
 
 		_flow_distance_sensor_pub.publish(d);
 	}
@@ -632,7 +632,7 @@ MavlinkReceiver::handle_message_hil_optical_flow(mavlink_message_t *msg)
 	d.type = distance_sensor_s::MAV_DISTANCE_SENSOR_LASER;
 	d.id = 0;
 	d.orientation = distance_sensor_s::ROTATION_DOWNWARD_FACING;
-	d.variance = 0.0;
+	// d.variance = 0.0;
 
 	_flow_distance_sensor_pub.publish(d);
 }
@@ -678,13 +678,13 @@ MavlinkReceiver::handle_message_distance_sensor(mavlink_message_t *msg)
 	ds.min_distance     = static_cast<float>(dist_sensor.min_distance) * 1e-2f;     /* cm to m */
 	ds.max_distance     = static_cast<float>(dist_sensor.max_distance) * 1e-2f;     /* cm to m */
 	ds.current_distance = static_cast<float>(dist_sensor.current_distance) * 1e-2f; /* cm to m */
-	ds.variance         = dist_sensor.covariance * 1e-4f;                           /* cm^2 to m^2 */
-	ds.h_fov            = dist_sensor.horizontal_fov;
-	ds.v_fov            = dist_sensor.vertical_fov;
-	ds.q[0]             = dist_sensor.quaternion[0];
-	ds.q[1]             = dist_sensor.quaternion[1];
-	ds.q[2]             = dist_sensor.quaternion[2];
-	ds.q[3]             = dist_sensor.quaternion[3];
+	// ds.variance         = dist_sensor.covariance * 1e-4f;                           /* cm^2 to m^2 */
+	// ds.h_fov            = dist_sensor.horizontal_fov;
+	// ds.v_fov            = dist_sensor.vertical_fov;
+	// ds.q[0]             = dist_sensor.quaternion[0];
+	// ds.q[1]             = dist_sensor.quaternion[1];
+	// ds.q[2]             = dist_sensor.quaternion[2];
+	// ds.q[3]             = dist_sensor.quaternion[3];
 	ds.signal_quality   = -1; // TODO: A dist_sensor.signal_quality field is missing from the mavlink message definition.
 	ds.type             = dist_sensor.type;
 	ds.id               = MAV_DISTANCE_SENSOR_LASER;

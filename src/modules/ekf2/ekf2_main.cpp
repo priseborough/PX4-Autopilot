@@ -77,6 +77,7 @@
 #include <uORB/topics/vehicle_odometry.h>
 #include <uORB/topics/vehicle_status.h>
 #include <uORB/topics/wind_estimate.h>
+#include <uORB/topics/yaw_est_test_data.h>
 
 #include "Utility/PreFlightChecker.hpp"
 
@@ -123,6 +124,7 @@ private:
 				const vehicle_status_s &vehicle_status,
 				const ekf2_innovations_s &innov);
 	void resetPreFlightChecks();
+	bool publish_test_data(const hrt_abstime &timestamp);
 
 	template<typename Param>
 	void update_mag_bias(Param &mag_bias_param, int axis_index);
@@ -280,6 +282,7 @@ private:
 	uORB::PublicationData<vehicle_global_position_s>	_vehicle_global_position_pub{ORB_ID(vehicle_global_position)};
 	uORB::PublicationData<vehicle_local_position_s>		_vehicle_local_position_pub{ORB_ID(vehicle_local_position)};
 	uORB::PublicationData<vehicle_odometry_s>		_vehicle_visual_odometry_aligned_pub{ORB_ID(vehicle_visual_odometry_aligned)};
+	uORB::PublicationMulti<yaw_est_test_data_s>		_yaw_est_pub{ORB_ID(yaw_est_test_data)};  // WINGTRA
 
 	Ekf _ekf;
 
@@ -1631,6 +1634,7 @@ void Ekf2::Run()
 			}
 
 			publish_wind_estimate(now);
+			publish_test_data(now);
 
 			if (!_mag_decl_saved && (_vehicle_status.arming_state == vehicle_status_s::ARMING_STATE_STANDBY)) {
 				_mag_decl_saved = update_mag_decl(_param_ekf2_mag_decl);
@@ -2339,6 +2343,22 @@ void Ekf2::calc_gps_blend_output()
 	_gps_output[GPS_BLENDED_INSTANCE].yaw		= _gps_blended_state.yaw;
 	_gps_output[GPS_BLENDED_INSTANCE].yaw_offset	= _gps_blended_state.yaw_offset;
 
+}
+
+bool Ekf2::publish_test_data(const hrt_abstime &timestamp)
+{
+	yaw_est_test_data_s yaw_est_test_data{};
+
+	if (_ekf.getDataEKFGSF(&yaw_est_test_data.yaw_composite, &yaw_est_test_data.yaw_variance, &yaw_est_test_data.yaw[0],
+			       &yaw_est_test_data.innov_vn[0], &yaw_est_test_data.innov_ve[0], &yaw_est_test_data.weight[0])) {
+		yaw_est_test_data.timestamp = timestamp;
+
+		_yaw_est_pub.publish(yaw_est_test_data);
+
+		return true;
+	}
+
+	return false;
 }
 
 float Ekf2::filter_altitude_ellipsoid(float amsl_hgt)

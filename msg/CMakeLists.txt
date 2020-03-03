@@ -108,6 +108,7 @@ set(msg_files
 	sensor_gyro_control.msg
 	sensor_mag.msg
 	sensor_preflight.msg
+	yaw_est_test_data.msg
 	sensor_selection.msg
 	servorail_status.msg
 	subsystem_info.msg

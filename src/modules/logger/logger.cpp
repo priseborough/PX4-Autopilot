@@ -508,6 +508,7 @@ bool Logger::copy_if_updated(int sub_idx, void *buffer, bool try_to_subscribe)
 
 void Logger::add_default_topics()
 {
+	add_topic("yaw_est_test_data");
 	add_topic("actuator_controls_0", 100);
 	add_topic("actuator_controls_1", 100);
 	add_topic("airspeed", 200);
@@ -580,6 +581,7 @@ void Logger::add_default_topics()
 
 void Logger::add_high_rate_topics()
 {
+	add_topic("yaw_est_test_data");
 	// maximum rate to analyze fast maneuvers (e.g. for racing)
 	add_topic("actuator_controls_0");
 	add_topic("actuator_outputs");
@@ -605,6 +607,7 @@ void Logger::add_estimator_replay_topics()
 	// for estimator replay (need to be at full rate)
 	add_topic("ekf2_timestamps");
 	add_topic("ekf_gps_position");
+	add_topic("yaw_est_test_data");
 
 	// current EKF2 subscriptions
 	add_topic("airspeed");

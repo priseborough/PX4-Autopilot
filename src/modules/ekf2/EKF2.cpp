@@ -998,6 +998,7 @@ void EKF2::PublishYawEstimatorStatus(const hrt_abstime &timestamp)
 
 	if (_ekf.getDataEKFGSF(&yaw_est_test_data.yaw_composite, &yaw_est_test_data.yaw_variance,
 			       yaw_est_test_data.yaw,
+			       yaw_est_test_data.innov_mps,
 			       yaw_est_test_data.innov_std_dev,
 			       yaw_est_test_data.weight)) {
 

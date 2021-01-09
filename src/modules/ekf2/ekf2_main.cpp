@@ -866,9 +866,9 @@ void Ekf2::Run()
 			}
 		}
 
-		// attempt reset until successful
 		if (_imu_bias_reset_request) {
-			_imu_bias_reset_request = !_ekf.reset_imu_bias();
+			_ekf.resetImuBias();
+			_imu_bias_reset_request = false;
 		}
 
 		// push imu data into estimator
@@ -934,7 +934,7 @@ void Ekf2::Run()
 
 			if (_airdata_sub.copy(&airdata)) {
 				_ekf.set_air_density(airdata.rho);
-				const baroSample baro_sample {airdata.baro_alt_meter, airdata.timestamp_sample};
+				const baroSample baro_sample {airdata.timestamp_sample, airdata.baro_alt_meter};
 				_ekf.setBaroData(baro_sample);
 				ekf2_timestamps.vehicle_air_data_timestamp_rel = (int16_t)((int64_t)airdata.timestamp / 100 -
 						(int64_t)ekf2_timestamps.timestamp / 100);
@@ -1119,10 +1119,10 @@ void Ekf2::Run()
 				ev_data.vel(2) = _ev_odom.vz;
 
 				if (_ev_odom.velocity_frame == vehicle_odometry_s::BODY_FRAME_FRD) {
-					ev_data.vel_frame = estimator::BODY_FRAME_FRD;
+					ev_data.vel_frame = velocity_frame_t::BODY_FRAME_FRD;
 
 				} else {
-					ev_data.vel_frame = estimator::LOCAL_FRAME_FRD;
+					ev_data.vel_frame = velocity_frame_t::LOCAL_FRAME_FRD;
 				}
 
 				// velocity measurement error from ev_data or parameters
@@ -1230,7 +1230,7 @@ void Ekf2::Run()
 		if (ekf_updated) {
 
 			filter_control_status_u control_status;
-			_ekf.get_control_mode(&control_status.value);
+			control_status.value = _ekf.control_status().value;
 
 			// only publish position after successful alignment
 			if (control_status.flags.tilt_align) {
@@ -1321,7 +1321,7 @@ void Ekf2::Run()
 				odom.pitchspeed = rates(1) - gyro_bias(1);
 				odom.yawspeed = rates(2) - gyro_bias(2);
 
-				lpos.dist_bottom_valid = _ekf.get_terrain_valid();
+				lpos.dist_bottom_valid = _ekf.isTerrainEstimateValid();
 
 				float terrain_vpos = _ekf.getTerrainVertPos();
 				lpos.dist_bottom = terrain_vpos - lpos.z; // Distance to bottom surface (ground) in meters
@@ -1535,7 +1535,7 @@ void Ekf2::Run()
 			// the GPS Fix bit, which is always checked)
 			status.gps_check_fail_flags &= ((uint16_t)_params->gps_check_mask << 1) | 1;
 			status.control_mode_flags = control_status.value;
-			_ekf.get_filter_fault_status(&status.filter_fault_flags);
+			status.filter_fault_flags =_ekf.fault_status().value;
 			_ekf.get_innovation_test_status(status.innovation_check_flags, status.mag_test_ratio,
 							status.vel_test_ratio, status.pos_test_ratio,
 							status.hgt_test_ratio, status.tas_test_ratio,

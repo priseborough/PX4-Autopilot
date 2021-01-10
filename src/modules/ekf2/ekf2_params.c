@@ -1457,3 +1457,13 @@ PARAM_DEFINE_INT32(EKF2_MAG_CHECK, 0);
  * @decimal 1
  */
 PARAM_DEFINE_FLOAT(EKF2_GSF_TAS, 15.0f);
+
+/**
+ * Initial yaw angle used when yaw cannot be observed directly or indirectly by other means
+ * If EKF2_MAG_TYPE = 5 and EKF2_AID_MASK bit positions 0 and 4 and false, then the yaw will be aligned to this value on startup.
+ *
+ * @group EKF2
+ * @unit deg
+ * @decimal 1
+ */
+PARAM_DEFINE_FLOAT(EKF2_YAW_ALIGN, 0.0f);

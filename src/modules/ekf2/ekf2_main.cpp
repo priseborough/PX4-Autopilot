@@ -535,8 +535,10 @@ private:
 
 		// Used by EKF-GSF experimental yaw estimator
 		(ParamExtFloat<px4::params::EKF2_GSF_TAS>)
-		_param_ekf2_gsf_tas_default	///< default value of true airspeed assumed during fixed wing operation
+		_param_ekf2_gsf_tas_default,	///< default value of true airspeed assumed during fixed wing operation
 
+		(ParamExtFloat<px4::params::EKF2_YAW_ALIGN>)
+		_param_ekf2_yaw_align	///< initial yaw angle used when yaw cannot be observed directly or indirectly by other means (deg)
 	)
 
 };
@@ -649,7 +651,8 @@ Ekf2::Ekf2(bool replay_mode):
 	_param_ekf2_pcoef_z(_params->static_pressure_coef_z),
 	_param_ekf2_move_test(_params->is_moving_scaler),
 	_param_ekf2_mag_check(_params->check_mag_strength),
-	_param_ekf2_gsf_tas_default(_params->EKFGSF_tas_default)
+	_param_ekf2_gsf_tas_default(_params->EKFGSF_tas_default),
+	_param_ekf2_yaw_align(_params->initial_yaw_deg)
 {
 	// initialise parameter cache
 	updateParams();

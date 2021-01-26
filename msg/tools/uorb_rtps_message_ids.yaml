@@ -297,6 +297,8 @@ rtps:
     id: 132
   - msg: telemetry_heartbeat
     id: 133
+  - msg: takeoff_status
+    id: 134
   ########## multi topics: begin ##########
   - msg: actuator_controls_0
     id: 150

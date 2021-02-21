@@ -1295,7 +1295,8 @@ void Ekf2::Run()
 				uint64_t origin_time;
 
 				// true if position (x,y,z) has a valid WGS-84 global reference (ref_lat, ref_lon, alt)
-				const bool ekf_origin_valid = _ekf.get_ekf_origin(&origin_time, &ekf_origin, &lpos.ref_alt);
+				//const bool ekf_origin_valid = _ekf.get_ekf_origin(&origin_time, &ekf_origin, &lpos.ref_alt);
+				const bool ekf_origin_valid = _ekf.getEkfGlobalOrigin(origin_time, ekf_origin.lat_rad, ekf_origin.lon_rad, lpos.ref_alt);
 				lpos.xy_global = ekf_origin_valid;
 				lpos.z_global = ekf_origin_valid;
 

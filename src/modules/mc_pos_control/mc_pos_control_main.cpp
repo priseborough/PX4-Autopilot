@@ -106,6 +106,7 @@ private:
 	void Run() override;
 
 	Takeoff _takeoff; /**< state machine and ramp to bring the vehicle off the ground without jumps */
+	uint8_t _old_takeoff_state{0};
 
 	uORB::Publication<vehicle_attitude_setpoint_s>	_vehicle_attitude_setpoint_pub;
 	uORB::PublicationQueued<vehicle_command_s> _pub_vehicle_command{ORB_ID(vehicle_command)};	 /**< vehicle command publication */
@@ -114,6 +115,7 @@ private:
 	uORB::Publication<landing_gear_s>			_landing_gear_pub{ORB_ID(landing_gear)};
 	uORB::Publication<vehicle_local_position_setpoint_s>	_local_pos_sp_pub{ORB_ID(vehicle_local_position_setpoint)};	/**< vehicle local position setpoint publication */
 	uORB::Publication<vehicle_local_position_setpoint_s>	_traj_sp_pub{ORB_ID(trajectory_setpoint)};			/**< trajectory setpoints publication */
+	uORB::Publication<takeoff_status_s>			_takeoff_status_pub{ORB_ID(takeoff_status)};
 
 	uORB::SubscriptionCallbackWorkItem _local_pos_sub{this, ORB_ID(vehicle_local_position)};	/**< vehicle local position */
 
@@ -707,6 +709,16 @@ MulticopterPositionControl::Run()
 			_vel_x_deriv.reset();
 			_vel_y_deriv.reset();
 			_vel_z_deriv.reset();
+		}
+
+		// Publish takeoff status
+		takeoff_status_s takeoff_status;
+		takeoff_status.takeoff_state = static_cast<uint8_t>(_takeoff.getTakeoffState());
+
+		if (takeoff_status.takeoff_state != _old_takeoff_state) {
+			takeoff_status.timestamp = hrt_absolute_time();
+			_takeoff_status_pub.publish(takeoff_status);
+			_old_takeoff_state = takeoff_status.takeoff_state;
 		}
 	}
 

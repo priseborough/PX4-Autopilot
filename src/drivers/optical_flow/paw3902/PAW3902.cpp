@@ -81,6 +81,34 @@ PAW3902::init()
 
 	_previous_collect_timestamp = hrt_absolute_time();
 
+	/* get operational limits of the sensor */
+	param_t hmin = param_find("SENS_FLOW_MINHGT");
+
+	if (hmin != PARAM_INVALID) {
+		float val = 0.7;
+		param_get(hmin, &val);
+
+		_sensor_min_range = val;
+	}
+
+	param_t hmax = param_find("SENS_FLOW_MAXHGT");
+
+	if (hmax != PARAM_INVALID) {
+		float val = 3.0;
+		param_get(hmax, &val);
+
+		_sensor_max_range = val;
+	}
+
+	param_t ratemax = param_find("SENS_FLOW_MAXR");
+
+	if (ratemax != PARAM_INVALID) {
+		float val = 2.5;
+		param_get(ratemax, &val);
+
+		_sensor_max_flow_rate = val;
+	}
+
 	start();
 
 	return PX4_OK;
@@ -668,9 +696,9 @@ PAW3902::RunImpl()
 	report.gyro_z_rate_integral = NAN;
 
 	// set (conservative) specs according to datasheet
-	report.max_flow_rate = 5.0f;       // Datasheet: 7.4 rad/s
-	report.min_ground_distance = 0.08f; // Datasheet: 80mm
-	report.max_ground_distance = 30.0f; // Datasheet: infinity
+	report.max_flow_rate = _sensor_max_flow_rate;
+	report.min_ground_distance = _sensor_min_range;
+	report.max_ground_distance = _sensor_max_range;
 
 	_optical_flow_pub.publish(report);
 

@@ -103,6 +103,11 @@ private:
 
 	uORB::PublicationMulti<optical_flow_s> _optical_flow_pub{ORB_ID(optical_flow)};
 
+	// Adjust via SENS_FLOW_MINHGT, SENS_FLOW_MAXHGT and SENS_FLOW_MAXR to suit operating environment
+	float _sensor_min_range{0.3f}; // Datasheet: 80mm but limited by vertical vertical velocity blooming effects in practice
+	float _sensor_max_range{3.0f}; // Datasheet: infinity but limited by sensor resolution in practice
+	float _sensor_max_flow_rate{5.0f}; // Datasheet: 7.4 rad/s
+
 	perf_counter_t	_sample_perf;
 	perf_counter_t	_comms_errors;
 	perf_counter_t	_dupe_count_perf;

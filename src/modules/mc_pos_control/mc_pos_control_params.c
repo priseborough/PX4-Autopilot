@@ -256,6 +256,17 @@ PARAM_DEFINE_FLOAT(MPC_XY_VEL_I_ACC, 0.4f);
 PARAM_DEFINE_FLOAT(MPC_XY_VEL_D_ACC, 0.2f);
 
 /**
+ * Horizontal control gain optical flow height breakpoint
+ *
+ * Height above which horizontal gains are reduced proportional to 1/hgt when the controller is complying with optical flow navigation limitations. This can be used to eliminate roll or pitch oscillation that can occur as range to ground increases when the optical flow sensor and rate gyros have different scale factors resulting in a parasitic coupling from angular rate to EKF optical flow innovations to EKF velocity estimates to demanded roll and pitch that scales with range to ground.
+ *
+ * @min 0.5
+ * @decimal 1
+ * @group Multicopter Position Control
+ */
+PARAM_DEFINE_FLOAT(MPC_XY_HGT_BP, 1.0f);
+
+/**
  * Maximum horizontal velocity in mission
  *
  * Normal horizontal velocity in AUTO modes (includes

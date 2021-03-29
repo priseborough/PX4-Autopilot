@@ -49,6 +49,7 @@ struct PositionControlStates {
 	matrix::Vector3f velocity;
 	matrix::Vector3f acceleration;
 	float yaw;
+	float hagl;
 };
 
 /**
@@ -147,6 +148,11 @@ public:
 	void setConstraints(const vehicle_constraints_s &constraints);
 
 	/**
+	 * Pass height above ground breakpoint used for gain scheduling
+	 */
+	void setGainScheduling(const float height_breakpoint) { _xy_scaler_hagl_bp = height_breakpoint; }
+
+	/**
 	 * Apply P-position and PID-velocity controller that updates the member
 	 * thrust, yaw- and yawspeed-setpoints.
 	 * @see _thr_sp
@@ -185,12 +191,17 @@ private:
 	void _positionControl(); ///< Position proportional control
 	void _velocityControl(const float dt); ///< Velocity PID control
 	void _accelerationControl(); ///< Acceleration setpoint processing
+	void _updateGainSchedule(); ///< Update any flight condition dependent scalers applied to position and velocity gains
 
 	// Gains
 	matrix::Vector3f _gain_pos_p; ///< Position control proportional gain
 	matrix::Vector3f _gain_vel_p; ///< Velocity control proportional gain
 	matrix::Vector3f _gain_vel_i; ///< Velocity control integral gain
 	matrix::Vector3f _gain_vel_d; ///< Velocity control derivative gain
+
+	// Gain scheduling
+	float _xy_scaler; ///< Scale factor applied to horizontal control gains
+	float _xy_scaler_hagl_bp; ///< Height above ground above which horizontal control gains are reduced
 
 	// Limits
 	float _lim_vel_horizontal{}; ///< Horizontal velocity limit with feed forward and position control
@@ -208,6 +219,7 @@ private:
 	matrix::Vector3f _vel_dot; /**< velocity derivative (replacement for acceleration estimate) */
 	matrix::Vector3f _vel_int; /**< integral term of the velocity controller */
 	float _yaw{}; /**< current heading */
+	float _hagl{}; /**< current height above ground */
 
 	vehicle_constraints_s _constraints{}; /**< variable constraints */
 

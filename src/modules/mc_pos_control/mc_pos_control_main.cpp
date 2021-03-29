@@ -163,6 +163,7 @@ private:
 		(ParamFloat<px4::params::MPC_TILTMAX_AIR>) _param_mpc_tiltmax_air,
 		(ParamFloat<px4::params::MPC_THR_HOVER>) _param_mpc_thr_hover,
 		(ParamBool<px4::params::MPC_USE_HTE>) _param_mpc_use_hte,
+		(ParamFloat<px4::params::MPC_XY_HGT_BP>) _param_mpc_xy_hgt_bp,
 
 		// Takeoff / Land
 		(ParamFloat<px4::params::MPC_SPOOLUP_TIME>) _param_mpc_spoolup_time, /**< time to let motors spool up after arming */
@@ -345,6 +346,8 @@ MulticopterPositionControl::parameters_update(bool force)
 			mavlink_log_critical(&_mavlink_log_pub, "Land tilt has been constrained by max tilt");
 		}
 
+		_control.setGainScheduling(fmaxf(_param_mpc_xy_hgt_bp.get(), 0.5f));
+
 		_control.setPositionGains(Vector3f(_param_mpc_xy_p.get(), _param_mpc_xy_p.get(), _param_mpc_z_p.get()));
 		_control.setVelocityGains(
 			Vector3f(_param_mpc_xy_vel_p_acc.get(), _param_mpc_xy_vel_p_acc.get(), _param_mpc_z_vel_p_acc.get()),
@@ -457,6 +460,12 @@ MulticopterPositionControl::set_vehicle_states(const float &vel_sp_z)
 
 	} else {
 		_states.position(2) = NAN;
+	}
+
+	if (_local_pos.dist_bottom_valid && PX4_ISFINITE(_local_pos.dist_bottom)) {
+		_states.hagl = _local_pos.dist_bottom;
+	} else {
+		_states.hagl = NAN;
 	}
 
 	if (PX4_ISFINITE(_local_pos.vx) && PX4_ISFINITE(_local_pos.vy) && _local_pos.v_xy_valid) {

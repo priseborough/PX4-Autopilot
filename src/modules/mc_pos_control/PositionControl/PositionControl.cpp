@@ -77,6 +77,8 @@ void PositionControl::setState(const PositionControlStates &states)
 	_vel = states.velocity;
 	_yaw = states.yaw;
 	_vel_dot = states.acceleration;
+	_hagl = states.hagl;
+
 }
 
 void PositionControl::setInputSetpoint(const vehicle_local_position_setpoint_s &setpoint)
@@ -116,6 +118,7 @@ bool PositionControl::update(const float dt)
 			   && (PX4_ISFINITE(_vel_sp(0)) == PX4_ISFINITE(_vel_sp(1)))
 			   && (PX4_ISFINITE(_acc_sp(0)) == PX4_ISFINITE(_acc_sp(1)));
 
+	_updateGainSchedule();
 	_positionControl();
 	_velocityControl(dt);
 
@@ -129,6 +132,9 @@ void PositionControl::_positionControl()
 {
 	// P-position controller
 	Vector3f vel_sp_position = (_pos_sp - _pos).emult(_gain_pos_p);
+	// gain can be reduced depending on flight condition and sensor fit
+	vel_sp_position(0) *= _xy_scaler;
+	vel_sp_position(1) *= _xy_scaler;
 	// Position and feed-forward velocity setpoints or position states being NAN results in them not having an influence
 	ControlMath::addIfNotNanVector3f(_vel_sp, vel_sp_position);
 	// make sure there are no NAN elements for further reference while constraining
@@ -146,6 +152,10 @@ void PositionControl::_velocityControl(const float dt)
 	// PID velocity control
 	Vector3f vel_error = _vel_sp - _vel;
 	Vector3f acc_sp_velocity = vel_error.emult(_gain_vel_p) + _vel_int - _vel_dot.emult(_gain_vel_d);
+
+	// gain can be reduced depending on flight condition and sensor fit
+	acc_sp_velocity(0) *= _xy_scaler;
+	acc_sp_velocity(1) *= _xy_scaler;
 
 	// No control input from setpoints or corresponding states which are NAN
 	ControlMath::addIfNotNanVector3f(_acc_sp, acc_sp_velocity);
@@ -200,6 +210,19 @@ void PositionControl::_accelerationControl()
 	collective_thrust /= (Vector3f(0, 0, 1).dot(body_z));
 	collective_thrust = math::min(collective_thrust, -_lim_thr_min);
 	_thr_sp = body_z * collective_thrust;
+}
+
+void PositionControl::_updateGainSchedule()
+{
+	if (PX4_ISFINITE(_constraints.min_distance_to_ground)) {
+		if (PX4_ISFINITE(_hagl) && _hagl > _xy_scaler_hagl_bp) {
+			_xy_scaler = _xy_scaler_hagl_bp / _hagl;
+		} else {
+			_xy_scaler = 1.0f;
+		}
+	} else {
+		_xy_scaler = 1.0f;
+	}
 }
 
 bool PositionControl::_updateSuccessful()

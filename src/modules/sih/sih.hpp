@@ -174,8 +174,29 @@ private:
 	float       _baro_p_mBar;   // reconstructed (simulated) pressure in mBar
 	float       _baro_temp_c;   // reconstructed (simulated) barometer temperature in celcius
 
-	// parameters
+	// multi rotor parameters
 	float _MASS, _T_MAX, _Q_MAX, _L_ROLL, _L_PITCH, _KDV, _KDW, _H0, _T_TAU;
+
+	// fixed wing parameters
+	float _span;
+	float _area;
+	float _chord;
+	float _max_static_thrust;
+	float _zero_thrust_speed;
+	float _cz_max;
+	float _cz_alpha;
+	float _cz_elev;
+	float _cx;
+	float _cm_elev;
+	float _cm_aoa;
+	float _cm_aoa_dot;
+	float _cl_ail;
+	float _cl_roll_rate;
+	float _cn_aos;
+	float _cn_aos_dot;
+	float _aoa_zero_lift;
+
+	// common parameters
 	double _LAT0, _LON0, _COS_LAT0;
 	matrix::Vector3f _W_I;  // weight of the vehicle in inertial frame [N]
 	matrix::Matrix3f _I;    // vehicle inertia matrix
@@ -217,6 +238,7 @@ private:
 		(ParamFloat<px4::params::SIH_DISTSNSR_MIN>) _sih_distance_snsr_min,
 		(ParamFloat<px4::params::SIH_DISTSNSR_MAX>) _sih_distance_snsr_max,
 		(ParamFloat<px4::params::SIH_DISTSNSR_OVR>) _sih_distance_snsr_override,
-		(ParamFloat<px4::params::SIH_T_TAU>) _sih_thrust_tau
+		(ParamFloat<px4::params::SIH_T_TAU>) _sih_thrust_tau,
+		(ParamInt<px4::params::SIH_TYPE>) _sih_type
 	)
 };

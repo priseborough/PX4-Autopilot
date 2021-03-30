@@ -435,3 +435,15 @@ PARAM_DEFINE_FLOAT(SIH_DISTSNSR_OVR, -1.0f);
  * @group Simulation In Hardware
  */
 PARAM_DEFINE_FLOAT(SIH_T_TAU, 0.05f);
+
+/**
+ * MC or FW model select
+ *
+ * Set to 0 for MC and 1 for FW.
+ *
+ * @min 0
+ * @max 1
+ * @decimal 2
+ * @group Simulation In Hardware
+ */
+PARAM_DEFINE_INT32(SIH_TYPE, 0);

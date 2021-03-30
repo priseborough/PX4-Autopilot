@@ -126,7 +126,9 @@ private:
 	void gps_fix();
 	void gps_no_fix();
 	void read_motors();
-	void generate_force_and_torques();
+	void generate_mc_force_and_torques();
+	void generate_fw_force_and_torques();
+	void calc_wing_coefficients(float &cfx, float &cfz, float &cmy, const float aoa, const float aoa_dot, const float elevator);
 	void equations_of_motion();
 	void reconstruct_sensors_signals();
 	void send_gps();
@@ -148,6 +150,7 @@ private:
 
 	matrix::Vector3f    _T_B;           // thrust force in body frame [N]
 	matrix::Vector3f    _Fa_I;          // aerodynamic force in inertial frame [N]
+	matrix::Vector3f    _Fa_B;          // aerodynamic force in body frame [N]
 	matrix::Vector3f    _Mt_B;          // thruster moments in the body frame [Nm]
 	matrix::Vector3f    _Ma_B;          // aerodynamic moments in the body frame [Nm]
 	matrix::Vector3f    _p_I;           // inertial position [m]
@@ -183,18 +186,28 @@ private:
 	float _chord;
 	float _max_static_thrust;
 	float _zero_thrust_speed;
-	float _cz_max;
-	float _cz_alpha;
-	float _cz_elev;
-	float _cx;
-	float _cm_elev;
-	float _cm_aoa;
-	float _cm_aoa_dot;
-	float _cl_ail;
-	float _cl_roll_rate;
-	float _cn_aos;
-	float _cn_aos_dot;
-	float _aoa_zero_lift;
+	float _cfz_max;
+	float _cfz_min;
+	float _cfz_stall_break;
+	float _cfz_0;
+	float _cfz_90;
+	float _cfz_aoa;
+	float _cfz_elev;
+	float _cfx_0;
+	float _cfx_stall;
+	float _cfx_elev;
+	float _cmy_elev;
+	float _cmy_aoa;
+	float _cmy_aoa_dot;
+	float _cmy_ratio;
+	float _cmx_ail;
+	float _cmx_roll_rate;
+	float _cmz_aos;
+	float _cmz_aos_dot;
+	float _cfy_aos;
+	float _cfy_lim;
+	float _elevon_max;
+	float _density;
 
 	// common parameters
 	double _LAT0, _LON0, _COS_LAT0;

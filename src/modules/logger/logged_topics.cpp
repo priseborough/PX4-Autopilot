@@ -232,6 +232,10 @@ void LoggedTopics::add_estimator_replay_topics()
 	add_topic("vehicle_status");
 	add_topic("vehicle_visual_odometry");
 	add_topic_multi("distance_sensor");
+	add_topic("landing_target_pose");
+	add_topic("vehicle_command");
+	add_topic("vehicle_imu");
+	add_topic("vehicle_odometry");
 }
 
 void LoggedTopics::add_thermal_calibration_topics()

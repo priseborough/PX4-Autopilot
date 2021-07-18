@@ -946,8 +946,7 @@ void Ekf::fixCovarianceErrors(bool force_symmetry)
 	// accelerometer bias states
 	if (!_accel_bias_inhibit[0] || !_accel_bias_inhibit[1] || !_accel_bias_inhibit[2]) {
 		// Find the maximum delta velocity bias state variance and request a covariance reset if any variance is below the safe minimum
-		const float minSafeStateVar = 1e-9f;
-		float maxStateVar = minSafeStateVar;
+		const float minSafeStateVar = 1e-14f;
 		bool resetRequired = false;
 
 		for (uint8_t stateIndex = 13; stateIndex <= 15; stateIndex++) {
@@ -956,27 +955,21 @@ void Ekf::fixCovarianceErrors(bool force_symmetry)
 				continue;
 			}
 
-			if (P(stateIndex, stateIndex) > maxStateVar) {
-				maxStateVar = P(stateIndex, stateIndex);
-
-			} else if (P(stateIndex, stateIndex) < minSafeStateVar) {
+			if (P(stateIndex, stateIndex) < minSafeStateVar) {
 				resetRequired = true;
 			}
 		}
 
-		// To ensure stability of the covariance matrix operations, the ratio of a max and min variance must
-		// not exceed 100 and the minimum variance must not fall below the target minimum
+		// To ensure stability of the covariance matrix operations, the minimum variance must not fall below the target minimum
 		// Also limit variance to a maximum equivalent to a 0.1g uncertainty
-		const float minStateVarTarget = 5E-8f;
-		float minAllowedStateVar = fmaxf(0.01f * maxStateVar, minStateVarTarget);
-
+		const float minStateVar = 1E-12f;
 		for (uint8_t stateIndex = 13; stateIndex <= 15; stateIndex++) {
 			if (_accel_bias_inhibit[stateIndex - 13]) {
 				// Skip the check for the inhibited axis
 				continue;
 			}
 
-			P(stateIndex, stateIndex) = math::constrain(P(stateIndex, stateIndex), minAllowedStateVar,
+			P(stateIndex, stateIndex) = math::constrain(P(stateIndex, stateIndex), minStateVar,
 						    sq(0.1f * CONSTANTS_ONE_G * _dt_ekf_avg));
 		}
 

@@ -262,7 +262,7 @@ PARAM_DEFINE_FLOAT(EKF2_REQ_VDRIFT, 0.2f);
  * @unit rad/s
  * @decimal 4
  */
-PARAM_DEFINE_FLOAT(EKF2_GYR_NOISE, 1.5e-2f);
+PARAM_DEFINE_FLOAT(EKF2_GYR_NOISE, 1.0e-2f);
 
 /**
  * Accelerometer noise for covariance prediction.
@@ -273,7 +273,7 @@ PARAM_DEFINE_FLOAT(EKF2_GYR_NOISE, 1.5e-2f);
  * @unit m/s^2
  * @decimal 2
  */
-PARAM_DEFINE_FLOAT(EKF2_ACC_NOISE, 3.5e-1f);
+PARAM_DEFINE_FLOAT(EKF2_ACC_NOISE, 2.5e-1f);
 
 /**
  * Process noise for IMU rate gyro bias prediction.
@@ -284,7 +284,7 @@ PARAM_DEFINE_FLOAT(EKF2_ACC_NOISE, 3.5e-1f);
  * @unit rad/s^2
  * @decimal 6
  */
-PARAM_DEFINE_FLOAT(EKF2_GYR_B_NOISE, 1.0e-3f);
+PARAM_DEFINE_FLOAT(EKF2_GYR_B_NOISE, 3.0e-4f);
 
 /**
  * Process noise for IMU accelerometer bias prediction.
@@ -295,7 +295,7 @@ PARAM_DEFINE_FLOAT(EKF2_GYR_B_NOISE, 1.0e-3f);
  * @unit m/s^3
  * @decimal 6
  */
-PARAM_DEFINE_FLOAT(EKF2_ACC_B_NOISE, 3.0e-3f);
+PARAM_DEFINE_FLOAT(EKF2_ACC_B_NOISE, 1.0e-3f);
 
 /**
  * Process noise for body magnetic field prediction.

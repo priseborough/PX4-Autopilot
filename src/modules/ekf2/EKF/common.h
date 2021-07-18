@@ -232,12 +232,12 @@ struct parameters {
 	float auxvel_delay_ms{5.0f};		///< auxiliary velocity measurement delay relative to the IMU (mSec)
 
 	// input noise
-	float gyro_noise{1.5e-2f};		///< IMU angular rate noise used for covariance prediction (rad/sec)
-	float accel_noise{3.5e-1f};		///< IMU acceleration noise use for covariance prediction (m/sec**2)
+	float gyro_noise{1.0e-2f};		///< IMU angular rate noise used for covariance prediction (rad/sec)
+	float accel_noise{2.5e-1f};		///< IMU acceleration noise use for covariance prediction (m/sec**2)
 
 	// process noise
-	float gyro_bias_p_noise{1.0e-3f};	///< process noise for IMU rate gyro bias prediction (rad/sec**2)
-	float accel_bias_p_noise{1.0e-2f};	///< process noise for IMU accelerometer bias prediction (m/sec**3)
+	float gyro_bias_p_noise{3.0e-4f};	///< process noise for IMU rate gyro bias prediction (rad/sec**2)
+	float accel_bias_p_noise{1.0e-3f};	///< process noise for IMU accelerometer bias prediction (m/sec**3)
 	float mage_p_noise{1.0e-3f};		///< process noise for earth magnetic field prediction (Gauss/sec)
 	float magb_p_noise{1.0e-4f};		///< process noise for body magnetic field prediction (Gauss/sec)
 	float wind_vel_p_noise{1.0e-1f};	///< process noise for wind velocity prediction (m/sec**2)

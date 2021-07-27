@@ -55,8 +55,7 @@ void Ekf::controlMagFusion()
 	// ground and to prevent uncontrolled yaw variance growth
 	// Also fuse zero heading innovation during the leveling fine alignment step to keep the yaw variance low
 	if (_params.mag_fusion_type >= MAG_FUSE_TYPE_NONE
-	    || _control_status.flags.mag_fault
-	    || !_control_status.flags.tilt_align) {
+	    || _control_status.flags.mag_fault) {
 
 		stopMagFusion();
 

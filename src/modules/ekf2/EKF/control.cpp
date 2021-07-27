@@ -83,6 +83,15 @@ void Ekf::controlFusionModes()
 					 (unsigned long long)_imu_sample_delayed.time_us, height_source, (int)_imu_buffer_length, (int)_obs_buffer_length);
 			}
 		}
+
+		// Fuse zero heading innovation during the leveling fine alignment step to keep the yaw variance low
+		// TODO: setting _is_yaw_fusion_inhibited to true is required to tell
+		// fuseHeading to perform a "zero innovation heading fusion"
+		// We should refactor it to avoid using this flag here
+		_is_yaw_fusion_inhibited = true;
+		fuseHeading();
+		_is_yaw_fusion_inhibited = false;
+
 	}
 
 	// check for intermittent data (before pop_first_older_than)

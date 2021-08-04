@@ -47,12 +47,14 @@
 #include <px4_platform_common/px4_work_queue/ScheduledWorkItem.hpp>
 #include <uORB/PublicationMulti.hpp>
 #include <uORB/Subscription.hpp>
+#include <uORB/SubscriptionMultiArray.hpp>
 #include <uORB/SubscriptionCallback.hpp>
 #include <uORB/topics/parameter_update.h>
 #include <uORB/topics/sensor_accel.h>
 #include <uORB/topics/sensor_gyro.h>
 #include <uORB/topics/vehicle_imu.h>
 #include <uORB/topics/vehicle_imu_status.h>
+#include <uORB/topics/estimator_sensor_bias.h>
 
 using namespace time_literals;
 
@@ -84,6 +86,8 @@ private:
 	void UpdateAccelVibrationMetrics(const matrix::Vector3f &acceleration);
 	void UpdateGyroVibrationMetrics(const matrix::Vector3f &angular_velocity);
 
+	void AccelCalibrationUpdate();
+
 	uORB::PublicationMulti<vehicle_imu_s> _vehicle_imu_pub{ORB_ID(vehicle_imu)};
 	uORB::PublicationMulti<vehicle_imu_status_s> _vehicle_imu_status_pub{ORB_ID(vehicle_imu_status)};
 
@@ -92,6 +96,12 @@ private:
 	uORB::Subscription _sensor_accel_sub;
 	uORB::SubscriptionCallbackWorkItem _sensor_gyro_sub;
 
+	// Used to check, save and use learned magnetometer biases
+	uORB::SubscriptionMultiArray<estimator_sensor_bias_s> _estimator_sensor_bias_subs{ORB_ID::estimator_sensor_bias};
+
+	static constexpr int MAX_SENSOR_COUNT = 4;
+
+	calibration::Accelerometer _calibration[MAX_SENSOR_COUNT];
 	calibration::Accelerometer _accel_calibration{};
 	calibration::Gyroscope _gyro_calibration{};
 
@@ -145,6 +155,8 @@ private:
 
 	const uint8_t _instance;
 
+	bool _armed{false};
+
 	perf_counter_t _accel_generation_gap_perf{perf_alloc(PC_COUNT, MODULE_NAME": accel data gap")};
 	perf_counter_t _gyro_generation_gap_perf{perf_alloc(PC_COUNT, MODULE_NAME": gyro data gap")};
 
@@ -152,6 +164,15 @@ private:
 		(ParamInt<px4::params::IMU_INTEG_RATE>) _param_imu_integ_rate,
 		(ParamInt<px4::params::IMU_GYRO_RATEMAX>) _param_imu_gyro_ratemax
 	)
+
+	bool _accel_cal_available{false};
+
+	struct AcelCal {
+		uint32_t device_id{0};
+		matrix::Vector3f accel_offset{};
+		matrix::Vector3f accel_bias_variance{};
+	} _accel_cal[ORB_MULTI_MAX_INSTANCES] {};
+
 };
 
 } // namespace sensors

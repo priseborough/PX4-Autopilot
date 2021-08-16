@@ -145,6 +145,15 @@ void VehicleIMU::Run()
 
 	ParametersUpdate();
 
+	// check vehicle status for changes to armed state
+	if (_vehicle_control_mode_sub.updated()) {
+		vehicle_control_mode_s vehicle_control_mode;
+
+		if (_vehicle_control_mode_sub.copy(&vehicle_control_mode)) {
+			_armed = vehicle_control_mode.flag_armed;
+		}
+	}
+
 	if (!_accel_calibration.enabled() || !_gyro_calibration.enabled()) {
 		return;
 	}
@@ -183,6 +192,11 @@ void VehicleIMU::Run()
 
 			if (UpdateAccel()) {
 				updated = true;
+
+				if (now_us - _accel_bias_check_timestamp_last > 1000000) {
+					_accel_bias_check_timestamp_last = now_us;
+					AccelCalibrationUpdate();
+				}
 			}
 		}
 
@@ -219,7 +233,6 @@ void VehicleIMU::Run()
 		}
 	}
 
-	AccelCalibrationUpdate();
 }
 
 bool VehicleIMU::UpdateAccel()
@@ -583,7 +596,7 @@ void VehicleIMU::AccelCalibrationUpdate()
 	// State variance assumed for acceerometer bias storage.
 	// This is a reference variance used to calculate the fraction of learned accelerometer bias that will be used to update the stored value.
 	// Larger values cause a larger fraction of the learned biases to be used.
-	static constexpr float acc_bias_vref = 2.5e-7f;
+	static constexpr float acc_bias_vref = 5e-4f;
 	static constexpr float min_var_allowed = acc_bias_vref * 0.01f;
 	static constexpr float max_var_allowed = acc_bias_vref * 100.f;
 

@@ -175,6 +175,7 @@ private:
 		uint32_t device_id{0};
 		matrix::Vector3f accel_offset{};
 		matrix::Vector3f accel_bias_variance{};
+		bool valid{false};
 	} _accel_cal[ORB_MULTI_MAX_INSTANCES] {};
 
 };

@@ -625,7 +625,7 @@ void VehicleIMU::AccelCalibrationUpdate()
 							_accel_cal[i].device_id = estimator_sensor_bias.accel_device_id;
 							_accel_cal[i].accel_offset = bias;
 							_accel_cal[i].accel_bias_variance = bias_variance;
-
+							_accel_cal[i].valid = true;
 							_accel_cal_available = true;
 
 							if ((old_offset - _accel_cal[i].accel_offset).longerThan(0.01f)) {
@@ -636,8 +636,9 @@ void VehicleIMU::AccelCalibrationUpdate()
 							}
 
 							break;
+
+						} else
 						}
-					}
 				}
 			}
 		}
@@ -645,28 +646,28 @@ void VehicleIMU::AccelCalibrationUpdate()
 	} else if (_accel_cal_available) {
 		// not armed and accel cal available
 		bool calibration_param_save_needed = false;
-		// iterate through available bias estimates and fuse them sequentially using a Kalman Filter scheme
-		Vector3f state_variance{acc_bias_vref, acc_bias_vref, acc_bias_vref};
+		// iterate through available bias estimates and save them sequentially
+		// if there are multiple estimates use the one with the smallest variance
+		Vector3f saved_bias_variance[MAX_SENSOR_COUNT] {};
 
 		for (int accel_index = 0; accel_index < MAX_SENSOR_COUNT; accel_index++) {
 			// apply all valid saved offsets
 			for (int i = 0; i < ORB_MULTI_MAX_INSTANCES; i++) {
 				if ((_calibration[accel_index].device_id() != 0)
-				    && (_accel_cal[i].device_id == _calibration[accel_index].device_id())) {
+				    && (_accel_cal[i].device_id == _calibration[accel_index].device_id())
+				    && _accel_cal[i].valid
+				&& (saved_bias_variance[accel_index] == 0.0f || accel_cal[i].accel_bias_variance < saved_bias_variance[accel_index]) {
 
-					const Vector3f accel_cal_orig{_calibration[accel_index].offset()};
-					Vector3f accel_cal_offset{_calibration[accel_index].offset()};
+				const Vector3f accel_cal_orig{_calibration[accel_index].offset()};
+				Vector3f accel_cal_offset{_calibration[accel_index].offset()};
 
-					// calculate weighting using ratio of variances and update stored bias values
-					const Vector3f &observation = _accel_cal[i].accel_offset;
+				// calculate weighting using ratio of variances and update stored bias values
+				const Vector3f &observation = _accel_cal[i].accel_offset;
 					const Vector3f &obs_variance = _accel_cal[i].accel_bias_variance;
 
 					for (int axis_index = 0; axis_index < 3; axis_index++) {
-						const float innovation_variance = state_variance(axis_index) + obs_variance(axis_index);
-						const float innovation = accel_cal_offset(axis_index) - observation(axis_index);
-						const float kalman_gain = state_variance(axis_index) / innovation_variance;
-						accel_cal_offset(axis_index) -= innovation * kalman_gain;
-						state_variance(axis_index) = fmaxf(state_variance(axis_index) * (1.f - kalman_gain), 0.f);
+						const float correction = accel_cal_offset(axis_index) - observation(axis_index);
+						accel_cal_offset(axis_index) -= correction;
 					}
 
 					if (_calibration[accel_index].set_offset(accel_cal_offset)) {

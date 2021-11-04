@@ -25,6 +25,16 @@ def quat2Rot(q):
 
     return Rot
 
+# calculates angles defining the yaw-pitch-roll (axes 3-2-1) intrinsic Tait-Bryan
+# rotation sequence from earth frame to body frame from the rotation matrix
+# this is the same conversion as used by src/lib/matrix/matrix/Euler.hpp
+def rotMatToEuler321(Rot):
+    roll = atan2(Rot[2, 1], Rot[2, 2])
+    pitch = asin(-Rot[2, 0])
+    yaw = atan2(Rot[1, 0], Rot[0, 0])
+    euler_angles = Matrix([roll,pitch,yaw])
+    return euler_angles
+
 def create_cov_matrix(i, j):
     if j >= i:
         return Symbol("P(" + str(i) + "," + str(j) + ")", real=True)
@@ -538,6 +548,9 @@ def generate_code():
     R_to_earth = quat2Rot(q)
     R_to_body = R_to_earth.T
 
+    # 321 rotation order euler angles
+    euler_angles = rotMatToEuler321(R_to_earth)
+
     # velocity in NED local frame (north, east, down)
     vx, vy, vz = symbols("vn ve vd", real=True)
     v = Matrix([vx,vy,vz])
@@ -590,6 +603,9 @@ def generate_code():
     A = state_new.jacobian(state)
     G = state_new.jacobian(u)
 
+    print('Computing quaternion to Euler Angle Jacobian:')
+    J_quat_to_eul = euler_angles.jacobian(q)
+
     P = create_symmetric_cov_matrix()
 
     print('Computing covariance propagation ...')
@@ -608,7 +624,16 @@ def generate_code():
     cov_code_generator.print_string("Equations for covariance matrix prediction, without process noise!")
     cov_code_generator.write_subexpressions(P_new_simple[0])
     cov_code_generator.write_matrix(Matrix(P_new_simple[1]), "nextP", True, "(", ")")
+    cov_code_generator.close()
 
+    print('Simplifying quaternion to euler Jacobian ...')
+    J_new_simple = cse(J_quat_to_eul, symbols("JS0:400"), optimizations='basic')
+
+    print('Writing quaternion to euler Jacobian to file ...')
+    cov_code_generator = CodeGenerator("./generated/euler_jacobian_generated.cpp")
+    cov_code_generator.print_string("Equations for quaternion to euler Jacobian")
+    cov_code_generator.write_subexpressions(J_new_simple[0])
+    cov_code_generator.write_matrix(Matrix(J_new_simple[1]), "J", True, "(", ")")
     cov_code_generator.close()
 
     # derive autocode for observation methods

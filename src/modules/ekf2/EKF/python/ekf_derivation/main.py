@@ -58,12 +58,20 @@ def quat_mult(p,q):
 
     return r
 
+def quat_divide(p,q):
+    r = Matrix([(q[0]*p[0] + q[1]*p[1] + q[2]*p[2] + q[3]*p[3]),
+                (q[0]*p[1] - q[1]*p[0] - q[2]*p[3] + q[3]*p[2]),
+                (q[0]*p[2] + q[1]*p[3] - q[2]*p[0] - q[3]*p[1]),
+                (q[0]*p[3] - q[1]*p[2] + q[2]*p[1] - q[3]*p[0])])
+
+    return r
+
 def create_symmetric_cov_matrix():
     # define a symbolic covariance matrix
-    P = Matrix(25,25,create_cov_matrix)
+    P = Matrix(24,24,create_cov_matrix)
 
-    for index in range(25):
-        for j in range(25):
+    for index in range(24):
+        for j in range(24):
             if index > j:
                 P[index,j] = P[j,index]
 
@@ -97,16 +105,16 @@ def generate_observation_equations(P,state,observation,variance,varname="HK"):
 # generate equations for observation vector Jacobian and Kalman gain
 # n_obs is the vector dimension and must be >= 2
 def generate_observation_vector_equations(P,state,observation,variance,n_obs):
-    K = zeros(25,n_obs)
+    K = zeros(24,n_obs)
     H = observation.jacobian(state)
-    HK = zeros(n_obs*50,1)
+    HK = zeros(n_obs*48,1)
     for index in range(n_obs):
         H[index,:] = Matrix([observation[index]]).jacobian(state)
         innov_var = H[index,:] * P * H[index,:].T + Matrix([variance])
         assert(innov_var.shape[0] == 1)
         assert(innov_var.shape[1] == 1)
         K[:,index] = P * H[index,:].T / innov_var[0,0]
-        HK[index*50:(index+1)*50,0] = Matrix([H[index,:].transpose(), K[:,index]])
+        HK[index*48:(index+1)*48,0] = Matrix([H[index,:].transpose(), K[:,index]])
 
     HK_simple = cse(HK, symbols("HK0:1000"), optimizations='basic')
 
@@ -121,25 +129,25 @@ def write_equations_to_file(equations,code_generator_id,n_obs):
         code_generator_id.print_string("Sub Expressions")
         code_generator_id.write_subexpressions(equations[0])
         code_generator_id.print_string("Observation Jacobians")
-        code_generator_id.write_matrix(Matrix(equations[1][0][0:25]), "Hfusion", False, ".at<", ">()")
+        code_generator_id.write_matrix(Matrix(equations[1][0][0:24]), "Hfusion", False, ".at<", ">()")
         code_generator_id.print_string("Kalman gains")
-        code_generator_id.write_matrix(Matrix(equations[1][0][25:]), "Kfusion", False, "(", ")")
+        code_generator_id.write_matrix(Matrix(equations[1][0][24:]), "Kfusion", False, "(", ")")
     else:
         code_generator_id.print_string("Sub Expressions")
         code_generator_id.write_subexpressions(equations[0])
         for axis_index in range(n_obs):
-            start_index = axis_index*50
+            start_index = axis_index*48
             code_generator_id.print_string("Observation Jacobians - axis %i" % axis_index)
-            code_generator_id.write_matrix(Matrix(equations[1][0][start_index:start_index+25]), "Hfusion", False, ".at<", ">()")
+            code_generator_id.write_matrix(Matrix(equations[1][0][start_index:start_index+24]), "Hfusion", False, ".at<", ">()")
             code_generator_id.print_string("Kalman gains - axis %i" % axis_index)
-            code_generator_id.write_matrix(Matrix(equations[1][0][start_index+25:start_index+50]), "Kfusion", False, "(", ")")
+            code_generator_id.write_matrix(Matrix(equations[1][0][start_index+24:start_index+48]), "Kfusion", False, "(", ")")
 
     return
 
 # derive equations for sequential fusion of optical flow measurements
-def hagl_observation(P,state):
+def hagl_observation(P,state,pd,ptd):
     obs_var = symbols("R_HAGL", real=True) # optical flow line of sight rate measurement noise variance
-    observation = state[24] - state[9]
+    observation = ptd - pd
     equations = generate_observation_equations(P,state,observation,obs_var)
     hagl_code_generator = CodeGenerator("./generated/hagl_generated.cpp")
     write_equations_to_file(equations,hagl_code_generator,1)
@@ -148,7 +156,7 @@ def hagl_observation(P,state):
     return
 
 # derive equations for sequential fusion of optical flow measurements
-def optical_flow_observation(P,state,R_to_body,vx,vy,vz):
+def optical_flow_observation(P,state,R_to_body,vx,vy,vz,pd,ptd):
     flow_code_generator = CodeGenerator("./generated/flow_generated.cpp")
     range = symbols("range", real=True) # range from camera focal point to ground along sensor Z axis
     obs_var = symbols("R_LOS", real=True) # optical flow line of sight rate measurement noise variance
@@ -159,7 +167,7 @@ def optical_flow_observation(P,state,R_to_body,vx,vy,vz):
     # define rotation from nav to sensor frame
     Tsn = Tsb * R_to_body
 
-    hagl = state[24] - state[9]
+    hagl = ptd - pd
     range = hagl / Tsn[2,2]
 
     # Calculate earth relative velocity in a non-rotating sensor frame
@@ -203,14 +211,14 @@ def body_frame_velocity_observation(P,state,R_to_body,vx,vy,vz):
     vel_bf_code_generator = CodeGenerator("./generated/vel_bf_generated.cpp")
     axes = [0,1,2]
     H_obs = vel_bf.jacobian(state) # observation Jacobians
-    K_gain = zeros(25,3)
+    K_gain = zeros(24,3)
     for index in axes:
         equations = generate_observation_equations(P,state,vel_bf[index],obs_var)
 
         vel_bf_code_generator.print_string("axis %i" % index)
         vel_bf_code_generator.write_subexpressions(equations[0])
-        vel_bf_code_generator.write_matrix(Matrix(equations[1][0][0:25]), "H_VEL", False, "(", ")")
-        vel_bf_code_generator.write_matrix(Matrix(equations[1][0][25:]), "Kfusion", False, "(", ")")
+        vel_bf_code_generator.write_matrix(Matrix(equations[1][0][0:24]), "H_VEL", False, "(", ")")
+        vel_bf_code_generator.write_matrix(Matrix(equations[1][0][24:]), "Kfusion", False, "(", ")")
 
     vel_bf_code_generator.close()
 
@@ -288,7 +296,7 @@ def body_frame_accel_observation(P,state,R_to_body,vx,vy,vz,wx,wy):
 
     acc_bf_code_generator  = CodeGenerator("./generated/acc_bf_generated.cpp")
     H = observation.jacobian(state)
-    K = zeros(25,2)
+    K = zeros(24,2)
     axes = [0,1]
     for index in axes:
         equations = generate_observation_equations(P,state,observation[index],obs_var)
@@ -522,103 +530,139 @@ def generate_code():
     print('Starting code generation:')
     print('Creating symbolic variables ...')
 
+    # state prediction equations
+
+    # define the measured Delta angle and delta velocity vectors
+    dax, day, daz = symbols("dax, day, daz", real=True)
+    dAngMeas = Matrix([dax, day, daz])
+    dvx, dvy, dvz = symbols("dvx, dvy, dvz", real=True)
+    dVelMeas = Matrix([dvx, dvy, dvz])
+
+    # define the IMU bias errors and scale factor
+    dax_b, day_b, daz_b = symbols("dax_b, day_b, daz_b", real=True)
+    dAngBias = Matrix([dax_b, day_b, daz_b])
+    dvx_b, dvy_b, dvz_b = symbols("dvx_b, dvy_b, dvz_b", real=True)
+    dVelBias = Matrix([dvx_b, dvy_b, dvz_b])
+
+    # define the quaternion rotation vector for the state estimate
+    q0, q1, q2, q3 = symbols("q0, q1, q2, q3", real=True)
+    estQuat = Matrix([q0, q1, q2, q3])
+
+    # define the attitude error rotation vector, where error = truth - estimate
+    rotErrX, rotErrY, rotErrZ = symbols("rotErrX, rotErrY, rotErrZ", real=True)
+    errRotVec = Matrix([rotErrX, rotErrY, rotErrZ])
+
+    # define the attitude error quaternion using a first order linearisation
+    errQuat = Matrix([1,errRotVec*0.5])
+
+    # Define the truth quaternion as the estimate + error
+    truthQuat = quat_mult(estQuat, errQuat)
+
+    # derive the truth body to nav direction cosine matrix
+    Tbn = quat2Rot(truthQuat)
+
+    # define the truth delta angle
+    # ignore coning compensation as these effects are negligible in terms of
+    # covariance growth for our application and grade of sensor
+    daxNoise, dayNoise, dazNoise = symbols("daxNoise, dayNoise, dazNoise", real=True)
+    dAngTruth = dAngMeas - dAngBias - Matrix([daxNoise, dayNoise, dazNoise])
+
+    # define the attitude update equations
+    # use a first order expansion of rotation to calculate the quaternion increment
+    # acceptable for propagation of covariances
+    deltaQuat = Matrix([1,dAngTruth*0.5])
+
+    truthQuatNew = quat_mult(truthQuat,deltaQuat)
+
+    # calculate the updated attitude error quaternion with respect to the previous estimate
+    errQuatNew = quat_divide(truthQuatNew,estQuat)
+
+    # change to a rotaton vector - this is the error rotation vector updated state
+    errRotVecNew = Matrix([2*errQuatNew[1], 2*errQuatNew[2], 2*errQuatNew[3]])
+
+    # Define the truth delta velocity -ignore sculling and transport rate
+    # corrections as these negligible are in terms of covariance growth for our
+    # application and grade of sensor
+    dvxNoise, dvyNoise, dvzNoise = symbols("dvxNoise, dvyNoise, dvzNoise", real=True)
+    dVelTruth = dVelMeas - dVelBias - Matrix([dvxNoise, dvyNoise, dvzNoise])
+
+    # define the velocity update equations
+    # ignore coriolis terms for linearisation purposes
+    vn,ve,vd = symbols("vn,ve,vd", real=True)
+    vel = Matrix([vn,ve,vd])
     dt = symbols("dt", real=True)  # dt
     g = symbols("g", real=True) # gravity constant
+    velNew = vel + Matrix([0, 0, g*dt]) + Tbn*dVelTruth
 
-    r_hor_vel = symbols("R_hor_vel", real=True) # horizontal velocity noise variance
-    r_ver_vel = symbols("R_vert_vel", real=True) # vertical velocity noise variance
-    r_hor_pos = symbols("R_hor_pos", real=True) # horizontal position noise variance
+    # define the position update equations
+    pn, pe, pd = symbols("pn, pe, pd", real=True)
+    pos = Matrix([pn, pe, pd])
+    posNew = pos + vel*dt
 
-    # inputs, integrated gyro measurements
-    # delta angle x y z
-    d_ang_x, d_ang_y, d_ang_z = symbols("dax day daz", real=True)  # delta angle x
-    d_ang = Matrix([d_ang_x, d_ang_y, d_ang_z])
+    # define the IMU bias error states
+    dax_b, day_b, daz_b = symbols("dax_b, day_b, daz_b", real=True)
+    delAngBias = Matrix([dax_b, day_b, daz_b])
+    dvx_b, dvy_b, dvz_b = symbols("dvx_b, dvy_b, dvz_b", real=True)
+    delVelBias = Matrix([dvx_b, dvy_b, dvz_b])
 
-    # inputs, integrated accelerometer measurements
-    # delta velocity x y z
-    d_v_x, d_v_y, d_v_z = symbols("dvx dvy dvz", real=True)
-    d_v = Matrix([d_v_x, d_v_y,d_v_z])
+    # define the earth magnetic field states
+    magN, magE, magD = symbols("magN magE magD", real=True)
+    magField = Matrix([magN, magE, magD])
 
-    u = Matrix([d_ang, d_v])
+    # define the magnetic sensor bias states
+    magX, magY, magZ = symbols("magX, magY, magZ", real=True)
+    magBias = Matrix([magX, magY, magZ])
 
-    # input noise
-    d_ang_x_var, d_ang_y_var, d_ang_z_var = symbols("daxVar dayVar dazVar", real=True)
+    # define the wind velocity states
+    vwn, vwe = symbols("vwn, vwe", real=True)
+    velWind = Matrix([vwn, vwe])
 
-    d_v_x_var, d_v_y_var, d_v_z_var = symbols("dvxVar dvyVar dvzVar", real=True)
+    # define the terrain vertical position state
+    ptd = symbols("ptd", real=True)
 
-    var_u = Matrix.diag(d_ang_x_var, d_ang_y_var, d_ang_z_var, d_v_x_var, d_v_y_var, d_v_z_var)
+    # Define the state vector & number of states
+    state = Matrix([errRotVec,vel,pos,delAngBias,delVelBias,magField,magBias,velWind,ptd])
 
-    # define state vector
+    # Define vector of process equations
+    state_new = Matrix([errRotVecNew,velNew,posNew,delAngBias,delVelBias,magField,magBias,velWind,ptd])
 
-    # attitude quaternion
-    qw, qx, qy, qz = symbols("q0 q1 q2 q3", real=True)
-    q = Matrix([qw,qx,qy,qz])
-    R_to_earth = quat2Rot(q)
-    R_to_body = R_to_earth.T
+    # IMU input noise influence matrix
+    G = state_new.jacobian(Matrix([daxNoise, dayNoise, dazNoise, dvxNoise, dvyNoise, dvzNoise]))
 
-    # velocity in NED local frame (north, east, down)
-    vx, vy, vz = symbols("vn ve vd", real=True)
-    v = Matrix([vx,vy,vz])
+    # set the rotation error states to zero
+    G.subs(rotErrX,0)
+    G.subs(rotErrY,0)
+    G.subs(rotErrZ,0)
 
-    # position in NED local frame (north, east, down)
-    px, py, pz = symbols("pn pe pd", real=True)
-    p = Matrix([px,py,pz])
-
-    # delta angle bias x y z
-    d_ang_bx, d_ang_by, d_ang_bz = symbols("dax_b day_b daz_b", real=True)
-    d_ang_b = Matrix([d_ang_bx, d_ang_by, d_ang_bz])
-    d_ang_true = d_ang - d_ang_b
-
-    # delta velocity bias x y z
-    d_vel_bx, d_vel_by, d_vel_bz = symbols("dvx_b dvy_b dvz_b", real=True)
-    d_vel_b = Matrix([d_vel_bx, d_vel_by, d_vel_bz])
-    d_vel_true = d_v - d_vel_b
-
-    # earth magnetic field vector x y z
-    ix, iy, iz = symbols("magN magE magD", real=True)
-    i = Matrix([ix,iy,iz])
-
-    # earth magnetic field bias in body frame
-    ibx, iby, ibz = symbols("ibx iby ibz", real=True)
-
-    ib = Matrix([ibx,iby,ibz])
-
-    # wind in local NE frame (north, east)
-    wx, wy = symbols("vwn, vwe", real=True)
-    w = Matrix([wx,wy])
-
-    # vertical position of terrain underneath vehicle
-    ptz = symbols("ptd", real=True)
-
-    # state vector at arbitrary time t
-    state = Matrix([q, v, p, d_ang_b, d_vel_b, i, ib, w, ptz])
-
-    print('Defining state propagation ...')
-    q_new = quat_mult(q, Matrix([1, 0.5 * d_ang_true[0],  0.5 * d_ang_true[1],  0.5 * d_ang_true[2]]))
-    v_new = v + R_to_earth * d_vel_true + Matrix([0,0,g]) * dt
-    p_new = p + v * dt
-
-    d_ang_b_new = d_ang_b
-    d_vel_b_new = d_vel_b
-    i_new = i
-    ib_new = ib
-    w_new = w
-    ptz_new = ptz
-
-    # predicted state vector at time t + dt
-    state_new = Matrix([q_new, v_new, p_new, d_ang_b_new, d_vel_b_new, i_new, ib_new, w_new, ptz_new])
+    # remove the disturbance noise from the process equations as it is only
+    # needed when calculating the disturbance influence matrix
+    state_new.subs(daxNoise,0)
+    state_new.subs(dayNoise,0)
+    state_new.subs(dazNoise,0)
+    state_new.subs(dvxNoise,0)
+    state_new.subs(dvyNoise,0)
+    state_new.subs(dvzNoise,0)
 
     print('Computing state propagation jacobian ...')
+
+    # state transition matrix
     A = state_new.jacobian(state)
-    G = state_new.jacobian(u)
+
+    # set the rotation error states to zero
+    A.subs(rotErrX,0)
+    A.subs(rotErrY,0)
+    A.subs(rotErrZ,0)
+
+    # IMU input noise variance matrix
+    imu_noise_variance = Matrix.diag(daxNoise, dayNoise, dazNoise, dvxNoise, dvyNoise, dvzNoise)
 
     P = create_symmetric_cov_matrix()
 
     print('Computing covariance propagation ...')
-    P_new = A * P * A.T + G * var_u * G.T
+    P_new = A * P * A.T + G * imu_noise_variance * G.T
 
-    for index in range(25):
-        for j in range(25):
+    for index in range(24):
+        for j in range(24):
             if index > j:
                 P_new[index,j] = 0
 
@@ -635,7 +679,7 @@ def generate_code():
 
     # use legacy quaternion to rotation matrix conversion for observaton equation as it gives
     # simpler equations
-    R_to_earth = quat2Rot(q,1)
+    R_to_earth = quat2Rot(truthQuat,1)
     R_to_body = R_to_earth.T
 
     # derive autocode for observation methods
@@ -644,22 +688,22 @@ def generate_code():
     print('Generating gps heading observation code ...')
     gps_yaw_observation(P,state,R_to_body)
     print('Generating mag observation code ...')
-    mag_observation_variance(P,state,R_to_body,i,ib)
-    mag_observation(P,state,R_to_body,i,ib)
+    mag_observation_variance(P,state,R_to_body,magField,magBias)
+    mag_observation(P,state,R_to_body,magField,magBias)
     print('Generating declination observation code ...')
-    declination_observation(P,state,ix,iy)
+    declination_observation(P,state,magN,magE)
     print('Generating airspeed observation code ...')
-    tas_observation(P,state,vx,vy,vz,wx,wy)
+    tas_observation(P,state,vn,ve,vd,vwn,vwe)
     print('Generating sideslip observation code ...')
-    beta_observation(P,state,R_to_body,vx,vy,vz,wx,wy)
+    beta_observation(P,state,R_to_body,vn,ve,vd,vwn,vwe)
     print('Generating optical flow observation code ...')
-    optical_flow_observation(P,state,R_to_body,vx,vy,vz)
+    optical_flow_observation(P,state,R_to_body,vn,ve,vd,pd,ptd)
     print('Generating HAGL observation code ...')
-    hagl_observation(P,state)
+    hagl_observation(P,state,pd,ptd)
     print('Generating body frame velocity observation code ...')
-    body_frame_velocity_observation(P,state,R_to_body,vx,vy,vz)
+    body_frame_velocity_observation(P,state,R_to_body,vn,ve,vd)
     print('Generating body frame acceleration observation code ...')
-    body_frame_accel_observation(P,state,R_to_body,vx,vy,vz,wx,wy)
+    body_frame_accel_observation(P,state,R_to_body,vn,ve,vd,vwn,vwe)
     print('Generating yaw estimator code ...')
     yaw_estimator()
     print('Code generation finished!')

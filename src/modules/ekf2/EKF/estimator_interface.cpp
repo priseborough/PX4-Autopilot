@@ -256,6 +256,7 @@ void EstimatorInterface::setAirspeedData(const airspeedSample &airspeed_sample)
 
 void EstimatorInterface::setRangeData(const rangeSample &range_sample)
 {
+	return;
 	if (!_initialised) {
 		return;
 	}

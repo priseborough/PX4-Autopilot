@@ -112,12 +112,12 @@ void Ekf::fuseHaglAllStates()
 	_hagl_innov = pred_hagl - meas_hagl;
 
 	// calculate the observation variance adding the variance of the vehicles own height uncertainty
-	const float obs_variance = fmaxf(P(9, 9) * _params.vehicle_variance_scaler, 0.0f)
+	const float obs_variance = fmaxf(P(8, 8) * _params.vehicle_variance_scaler, 0.0f)
 				   + sq(_params.range_noise)
 				   + sq(_params.range_noise_scaler * _range_sensor.getRange());
 
 	// calculate the innovation variance - limiting it to prevent a badly conditioned fusion
-	_hagl_innov_var = fmaxf(P(24,24) - 2*P(9,24) + P(9,9) + obs_variance, obs_variance);
+	_hagl_innov_var = fmaxf(P(23,23) - 2*P(8,23) + P(8,8) + obs_variance, obs_variance);
 
 	// perform an innovation consistency check and only fuse data if it passes
 	const float gate_size = fmaxf(_params.range_innov_gate, 1.0f);
@@ -129,11 +129,11 @@ void Ekf::fuseHaglAllStates()
 		const float HK0 = 1.0F/_hagl_innov_var;
 
 		// calculate the observation Jacobians and Kalman gains
-		SparseVector25f<9,24> Hfusion; // Optical flow observation Jacobians
-		Vector25f Kfusion;
+		SparseVector24f<8,23> Hfusion; // Optical flow observation Jacobians
+		Vector24f Kfusion;
 
 		if (_control_status.flags.rng_hgt) {
-			Hfusion.at<9>() = -1.0f;
+			Hfusion.at<8>() = -1.0f;
 			if (shouldUseRangeFinderForHagl()) {
 				for (uint8_t index=0; index<=23; index++) {
 					Kfusion(index) = HK0*(P(index,24) - P(index,9));
@@ -151,14 +151,14 @@ void Ekf::fuseHaglAllStates()
 		}
 
 		if (shouldUseRangeFinderForHagl()) {
-			Hfusion.at<24>() = 1.0f;
+			Hfusion.at<23>() = 1.0f;
 			if (_control_status.flags.rng_hgt) {
-				Kfusion(24) = HK0*(P(24,24) - P(24,9));
+				Kfusion(23) = HK0*(P(23,23) - P(23,8));
 			} else {
-				Kfusion(24) = HK0*P(24,24);
+				Kfusion(23) = HK0*P(23,23);
 			}
 		} else {
-			Kfusion(24) = 0.0f;
+			Kfusion(23) = 0.0f;
 		}
 
 

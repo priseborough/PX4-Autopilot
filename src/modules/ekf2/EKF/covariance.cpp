@@ -151,8 +151,8 @@ void Ekf::predictCovariance()
 					 || is_manoeuvre_level_high
 					 || _fault_status.flags.bad_acc_vertical;
 
-	for (unsigned stateIndex = 13; stateIndex <= 15; stateIndex++) {
-		const unsigned index = stateIndex - 13;
+	for (unsigned stateIndex = 12; stateIndex <= 14; stateIndex++) {
+		const unsigned index = stateIndex - 12;
 
 		const bool do_inhibit_axis = do_inhibit_all_axes || _imu_sample_delayed.delta_vel_clipping[index];
 
@@ -175,7 +175,7 @@ void Ekf::predictCovariance()
 	// Don't continue to grow the earth field variances if they are becoming too large or we are not doing 3-axis fusion as this can make the covariance matrix badly conditioned
 	float mag_I_sig;
 
-	if (_control_status.flags.mag_3D && (P(16, 16) + P(17, 17) + P(18, 18)) < 0.1f) {
+	if (_control_status.flags.mag_3D && (P(15, 15) + P(16, 16) + P(17, 17)) < 0.1f) {
 		mag_I_sig = dt * math::constrain(_params.mage_p_noise, 0.0f, 1.0f);
 
 	} else {
@@ -185,7 +185,7 @@ void Ekf::predictCovariance()
 	// Don't continue to grow the body field variances if they is becoming too large or we are not doing 3-axis fusion as this can make the covariance matrix badly conditioned
 	float mag_B_sig;
 
-	if (_control_status.flags.mag_3D && (P(19, 19) + P(20, 20) + P(21, 21)) < 0.1f) {
+	if (_control_status.flags.mag_3D && (P(18, 18) + P(19, 19) + P(20, 20)) < 0.1f) {
 		mag_B_sig = dt * math::constrain(_params.magb_p_noise, 0.0f, 1.0f);
 
 	} else {
@@ -199,7 +199,7 @@ void Ekf::predictCovariance()
 	_height_rate_lpf = _height_rate_lpf * (1.0f - alpha_height_rate_lpf) + _state.vel(2) * alpha_height_rate_lpf;
 
 	// Don't continue to grow wind velocity state variances if they are becoming too large or we are not using wind velocity states as this can make the covariance matrix badly conditioned
-	if (_control_status.flags.wind && (P(22,22) + P(23,23)) < sq(_params.initial_wind_uncertainty)) {
+	if (_control_status.flags.wind && (P(21,21) + P(22,22)) < sq(_params.initial_wind_uncertainty)) {
 		wind_vel_sig = dt * math::constrain(_params.wind_vel_p_noise, 0.0f, 1.0f) * (1.0f + _params.wind_vel_p_noise_scaler * fabsf(_height_rate_lpf));
 
 	} else {
@@ -207,23 +207,23 @@ void Ekf::predictCovariance()
 	}
 
 	// compute noise variance for stationary processes
-	Vector25f process_noise;
+	Vector24f process_noise;
 
 	// Construct the process noise variance diagonal for those states with a stationary process model
 	// These are kinematic states and their error growth is controlled separately by the IMU noise variances
 
 	// delta angle bias states
-	process_noise.slice<3, 1>(10, 0) = sq(d_ang_bias_sig);
+	process_noise.slice<3, 1>(9, 0) = sq(d_ang_bias_sig);
 	// delta_velocity bias states
-	process_noise.slice<3, 1>(13, 0) = sq(d_vel_bias_sig);
+	process_noise.slice<3, 1>(12, 0) = sq(d_vel_bias_sig);
 	// earth frame magnetic field states
-	process_noise.slice<3, 1>(16, 0) = sq(mag_I_sig);
+	process_noise.slice<3, 1>(15, 0) = sq(mag_I_sig);
 	// body frame magnetic field states
-	process_noise.slice<3, 1>(19, 0) = sq(mag_B_sig);
+	process_noise.slice<3, 1>(18, 0) = sq(mag_B_sig);
 	// wind velocity states
-	process_noise.slice<2, 1>(22, 0) = sq(wind_vel_sig);
+	process_noise.slice<2, 1>(21, 0) = sq(wind_vel_sig);
 	// terrain vertical position state
-	process_noise.slice<1, 1>(24, 0) = sq(_imu_sample_delayed.delta_vel_dt * _params.terrain_p_noise) + sq(_imu_sample_delayed.delta_vel_dt * _params.terrain_gradient)
+	process_noise.slice<1, 1>(23, 0) = sq(_imu_sample_delayed.delta_vel_dt * _params.terrain_p_noise) + sq(_imu_sample_delayed.delta_vel_dt * _params.terrain_gradient)
 			* (sq(_state.vel(0)) + sq(_state.vel(1)));
 
 	// assign IMU noise variances
@@ -514,7 +514,7 @@ void Ekf::predictCovariance()
 	const float PS247 = -P(0,5)*PS177 - P(1,5)*PS175 - P(2,5)*PS176 - P(5,12)*PS232 - P(5,13)*PS231 + P(5,14)*PS173 + P(5,5);
 
 	// covariance update
-	SquareMatrix25f nextP;
+	SquareMatrix24f nextP;
 
 	// calculate variances and upper diagonal covariances for angle error, velocity, position and gyro bias states
 
@@ -936,7 +936,7 @@ void Ekf::fixCovarianceErrors(bool force_symmetry)
 	// Covariance diagonal limits. Use same values for states which
 	// belong to the same group (e.g. vel_x, vel_y, vel_z)
 	float P_lim[9] = {};
-	P_lim[0] = 1.0f;		// quaternion max var
+	P_lim[0] = 1.0f;		// angle error max var
 	P_lim[1] = 1e6f;		// velocity max var
 	P_lim[2] = 1e6f;		// positiion max var
 	P_lim[3] = 1.0f;		// gyro bias max var
@@ -946,29 +946,29 @@ void Ekf::fixCovarianceErrors(bool force_symmetry)
 	P_lim[7] = 1e6f;		// wind max var
 	P_lim[8] = 1E4f;		// terrain vertical position max variance
 
-	for (int i = 0; i <= 3; i++) {
-		// quaternion states
+	for (int i = 0; i <= 2; i++) {
+		// angle error states
 		P(i, i) = math::constrain(P(i, i), 0.0f, P_lim[0]);
 	}
 
-	for (int i = 4; i <= 6; i++) {
+	for (int i = 3; i <= 5; i++) {
 		// NED velocity states
 		P(i, i) = math::constrain(P(i, i), 1e-6f, P_lim[1]);
 	}
 
-	for (int i = 7; i <= 9; i++) {
+	for (int i = 6; i <= 8; i++) {
 		// NED position states
 		P(i, i) = math::constrain(P(i, i), 1e-6f, P_lim[2]);
 	}
 
-	for (int i = 10; i <= 12; i++) {
+	for (int i = 9; i <= 11; i++) {
 		// gyro bias states
 		P(i, i) = math::constrain(P(i, i), 0.0f, P_lim[3]);
 	}
 
-	// force symmetry on the quaternion, velocity and position state covariances
+	// force symmetry on the angle error, velocity and position state covariances
 	if (force_symmetry) {
-		P.makeRowColSymmetric<13>(0);
+		P.makeRowColSymmetric<12>(0);
 	}
 
 	// the following states are optional and are deactivated when not required
@@ -981,8 +981,8 @@ void Ekf::fixCovarianceErrors(bool force_symmetry)
 		float maxStateVar = minSafeStateVar;
 		bool resetRequired = false;
 
-		for (uint8_t stateIndex = 13; stateIndex <= 15; stateIndex++) {
-			if (_accel_bias_inhibit[stateIndex - 13]) {
+		for (uint8_t stateIndex = 12; stateIndex <= 14; stateIndex++) {
+			if (_accel_bias_inhibit[stateIndex - 12]) {
 				// Skip the check for the inhibited axis
 				continue;
 			}
@@ -1001,8 +1001,8 @@ void Ekf::fixCovarianceErrors(bool force_symmetry)
 		const float minStateVarTarget = 5E-8f;
 		float minAllowedStateVar = fmaxf(0.01f * maxStateVar, minStateVarTarget);
 
-		for (uint8_t stateIndex = 13; stateIndex <= 15; stateIndex++) {
-			if (_accel_bias_inhibit[stateIndex - 13]) {
+		for (uint8_t stateIndex = 12; stateIndex <= 14; stateIndex++) {
+			if (_accel_bias_inhibit[stateIndex - 12]) {
 				// Skip the check for the inhibited axis
 				continue;
 			}
@@ -1043,7 +1043,7 @@ void Ekf::fixCovarianceErrors(bool force_symmetry)
 		// the covariance matrix but preserve the variances (diagonals) to allow bias learning to continue
 		if (isTimedOut(_time_acc_bias_check, (uint64_t)7e6)) {
 
-			P.uncorrelateCovariance<3>(13);
+			P.uncorrelateCovariance<3>(12);
 
 			_time_acc_bias_check = _time_last_imu;
 			_fault_status.flags.bad_acc_bias = false;
@@ -1052,7 +1052,7 @@ void Ekf::fixCovarianceErrors(bool force_symmetry)
 
 		} else if (force_symmetry) {
 			// ensure the covariance values are symmetrical
-			P.makeRowColSymmetric<3>(13);
+			P.makeRowColSymmetric<3>(12);
 		}
 
 	}
@@ -1063,11 +1063,11 @@ void Ekf::fixCovarianceErrors(bool force_symmetry)
 
 	} else {
 		// constrain variances
-		for (int i = 16; i <= 18; i++) {
+		for (int i = 15; i <= 17; i++) {
 			P(i, i) = math::constrain(P(i, i), 0.0f, P_lim[5]);
 		}
 
-		for (int i = 19; i <= 21; i++) {
+		for (int i = 18; i <= 20; i++) {
 			P(i, i) = math::constrain(P(i, i), 0.0f, P_lim[6]);
 		}
 
@@ -1081,38 +1081,38 @@ void Ekf::fixCovarianceErrors(bool force_symmetry)
 
 	// wind velocity states
 	if (!_control_status.flags.wind) {
-		P.uncorrelateCovarianceSetVariance<2>(22, 0.0f);
+		P.uncorrelateCovarianceSetVariance<2>(21, 0.0f);
 
 	} else {
 		// constrain variances
-		for (int i = 22; i <= 23; i++) {
+		for (int i = 21; i <= 22; i++) {
 			P(i, i) = math::constrain(P(i, i), 0.0f, P_lim[7]);
 		}
 
 		// force symmetry
 		if (force_symmetry) {
-			P.makeRowColSymmetric<2>(22);
+			P.makeRowColSymmetric<2>(21);
 		}
 	}
 
 	// terrain vertical position
 	if (!_terrain_initialised) {
-		P.uncorrelateCovarianceSetVariance<1>(24, 0.0f);
+		P.uncorrelateCovarianceSetVariance<1>(23, 0.0f);
 
 	} else {
 		// constrain variances
-		P(24, 24) = math::constrain(P(24, 24), 0.0f, P_lim[8]);
+		P(23, 23) = math::constrain(P(23, 23), 0.0f, P_lim[8]);
 
 		// force symmetry
 		if (force_symmetry) {
-			P.makeRowColSymmetric<1>(24);
+			P.makeRowColSymmetric<1>(23);
 		}
 	}
 }
 
 // if the covariance correction will result in a negative variance, then
 // the covariance matrix is unhealthy and must be corrected
-bool Ekf::checkAndFixCovarianceUpdate(const SquareMatrix25f &KHP)
+bool Ekf::checkAndFixCovarianceUpdate(const SquareMatrix24f &KHP)
 {
 	bool healthy = true;
 
@@ -1140,7 +1140,7 @@ void Ekf::resetQuatCov()
 	Vector3f rot_vec_var;
 	rot_vec_var.setAll(sq(_params.initial_tilt_err));
 
-	initialiseQuatCovariances(rot_vec_var);
+	initialiseAngleErrorCovariances(rot_vec_var);
 }
 
 void Ekf::zeroQuatCov()
@@ -1174,15 +1174,15 @@ void Ekf::clearMagCov()
 
 void Ekf::zeroMagCov()
 {
-	P.uncorrelateCovarianceSetVariance<3>(16, 0.0f);
-	P.uncorrelateCovarianceSetVariance<3>(19, 0.0f);
+	P.uncorrelateCovarianceSetVariance<3>(15, 0.0f);
+	P.uncorrelateCovarianceSetVariance<3>(18, 0.0f);
 }
 
 void Ekf::resetZDeltaAngBiasCov()
 {
 	const float init_delta_ang_bias_var = sq(_params.switch_on_gyro_bias * _dt_ekf_avg);
 
-	P.uncorrelateCovarianceSetVariance<1>(12, init_delta_ang_bias_var);
+	P.uncorrelateCovarianceSetVariance<1>(11, init_delta_ang_bias_var);
 }
 
 void Ekf::resetWindCovarianceUsingAirspeed()
@@ -1203,15 +1203,15 @@ void Ekf::resetWindCovarianceUsingAirspeed()
 	const float Wy = -_state.wind_vel(0) * sin_yaw + _state.wind_vel(1) * cos_yaw;
 
 	// it is safer to remove all existing correlations to other states at this time
-	P.uncorrelateCovarianceSetVariance<2>(22, 0.0f);
+	P.uncorrelateCovarianceSetVariance<2>(21, 0.0f);
 
-	P(22, 22) = R_TAS * sq(cos_yaw) + R_yaw * sq(-Wx * sin_yaw - Wy * cos_yaw) + initial_wind_var_body_y * sq(sin_yaw);
-	P(22, 23) = R_TAS * sin_yaw * cos_yaw + R_yaw * (-Wx * sin_yaw - Wy * cos_yaw) * (Wx * cos_yaw - Wy * sin_yaw) -
+	P(21, 21) = R_TAS * sq(cos_yaw) + R_yaw * sq(-Wx * sin_yaw - Wy * cos_yaw) + initial_wind_var_body_y * sq(sin_yaw);
+	P(21, 22) = R_TAS * sin_yaw * cos_yaw + R_yaw * (-Wx * sin_yaw - Wy * cos_yaw) * (Wx * cos_yaw - Wy * sin_yaw) -
 		    initial_wind_var_body_y * sin_yaw * cos_yaw;
-	P(23, 22) = P(22, 23);
-	P(23, 23) = R_TAS * sq(sin_yaw) + R_yaw * sq(Wx * cos_yaw - Wy * sin_yaw) + initial_wind_var_body_y * sq(cos_yaw);
+	P(22, 21) = P(21, 22);
+	P(22, 22) = R_TAS * sq(sin_yaw) + R_yaw * sq(Wx * cos_yaw - Wy * sin_yaw) + initial_wind_var_body_y * sq(cos_yaw);
 
 	// Now add the variance due to uncertainty in vehicle velocity that was used to calculate the initial wind speed
+	P(21, 21) += P(3, 3);
 	P(22, 22) += P(4, 4);
-	P(23, 23) += P(5, 5);
 }

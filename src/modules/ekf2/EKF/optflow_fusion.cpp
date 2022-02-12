@@ -354,8 +354,8 @@ void Ekf::fuseOptFlow()
 	}
 
 	// fuse observation axes sequentially
-	SparseVector25f<0,1,2,3,4,5,6,9,24> Hfusion; // Optical flow observation Jacobians
-	Vector25f Kfusion; // Optical flow Kalman gains
+	SparseVector24f<0,1,2,3,4,5,8,23> Hfusion; // Optical flow observation Jacobians
+	Vector24f Kfusion; // Optical flow Kalman gains
 
 	for (uint8_t obs_index = 0; obs_index <= 1; obs_index++) {
 

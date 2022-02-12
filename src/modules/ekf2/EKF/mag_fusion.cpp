@@ -196,8 +196,8 @@ void Ekf::fuseMag(const Vector3f &mag)
 	const bool update_all_states = ((_imu_sample_delayed.time_us - _flt_mag_align_start_time) > (uint64_t)5e6);
 
 	// Observation jacobian and Kalman gain vectors
-	SparseVector25f<0,1,2,3,16,17,18,19,20,21> Hfusion;
-	Vector25f Kfusion;
+	SparseVector24f<0,1,2,15,16,17,18,19,20> Hfusion;
+	Vector24f Kfusion;
 
 	// update the states and covariance using sequential fusion of the magnetometer components
 	for (uint8_t index = 0; index <= 2; index++) {
@@ -623,7 +623,7 @@ void Ekf::updateQuaternion(const float innovation, const float variance, const f
 
 	// calculate the Kalman gains
 	// only calculate gains for states we are using
-	Vector25f Kfusion;
+	Vector24f Kfusion;
 
 	for (uint8_t row = 0; row <= 15; row++) {
 		for (uint8_t col = 0; col <= 3; col++) {
@@ -809,12 +809,12 @@ void Ekf::fuseDeclination(float decl_sigma)
 	// Calculate the observation Jacobian
 	// Note only 2 terms are non-zero which can be used in matrix operations for calculation of Kalman gains and covariance update to significantly reduce cost
 	// Note Hfusion indices do not match state indices
-	SparseVector25f<16,17> Hfusion;
+	SparseVector24f<15,16> Hfusion;
 	Hfusion.at<16>() = -HK0*HK2*magE;
 	Hfusion.at<17>() = HK4;
 
 	// Calculate the Kalman gains
-	Vector25f Kfusion;
+	Vector24f Kfusion;
 
 	for (unsigned row = 0; row <= 15; row++) {
 		Kfusion(row) = -HK9*(HK5*P(row,16) - P(row,17));

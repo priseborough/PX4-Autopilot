@@ -715,9 +715,9 @@ private:
 	// matrix vector multiplication for computing K<24,1> * H<1,24> * P<24,24>
 	// that is optimized by exploring the sparsity in H
 	template <size_t ...Idxs>
-	SquareMatrix25f computeKHP(const Vector25f &K, const SparseVector25f<Idxs...> &H) const
+	SquareMatrix25f computeKHP(const Vector24f &K, const SparseVector24f<Idxs...> &H) const
 	{
-		SquareMatrix25f KHP;
+		SquareMatrix24f KHP;
 		constexpr size_t non_zeros = sizeof...(Idxs);
 		float KH[non_zeros];
 
@@ -744,18 +744,18 @@ private:
 	// measurement update with a single measurement
 	// returns true if fusion is performed
 	template <size_t ...Idxs>
-	bool measurementUpdate(Vector25f &K, const SparseVector25f<Idxs...> &H, float innovation)
+	bool measurementUpdate(Vector24f &K, const SparseVector24f<Idxs...> &H, float innovation)
 	{
 		for (unsigned i = 0; i < 3; i++) {
 			if (_accel_bias_inhibit[i]) {
-				K(13 + i) = 0.0f;
+				K(12 + i) = 0.0f;
 			}
 		}
 
 		// apply covariance correction via P_new = (I -K*H)*P
 		// first calculate expression for KHP
 		// then calculate P - KHP
-		const SquareMatrix25f KHP = computeKHP(K, H);
+		const SquareMatrix24f KHP = computeKHP(K, H);
 
 		const bool is_healthy = checkAndFixCovarianceUpdate(KHP);
 
@@ -774,7 +774,7 @@ private:
 
 	// if the covariance correction will result in a negative variance, then
 	// the covariance matrix is unhealthy and must be corrected
-	bool checkAndFixCovarianceUpdate(const SquareMatrix25f &KHP);
+	bool checkAndFixCovarianceUpdate(const SquareMatrix24f &KHP);
 
 	// limit the diagonal of the covariance matrix
 	// force symmetry when the argument is true
@@ -785,7 +785,7 @@ private:
 
 	// generic function which will perform a fusion step given a kalman gain K
 	// and a scalar innovation value
-	void fuse(const Vector25f &K, float innovation);
+	void fuse(const Vector24f &K, float innovation);
 
 	float compensateBaroForDynamicPressure(float baro_alt_uncompensated) const override;
 
@@ -920,9 +920,8 @@ private:
 	// rotate quaternion covariances into variances for an equivalent rotation vector
 	Vector3f calcRotVecVariances();
 
-	// initialise the quaternion covariances using rotation vector variances
-	// do not call before quaternion states are initialised
-	void initialiseQuatCovariances(Vector3f &rot_vec_var);
+	// initialise the angle error covariances using rotation vector variances
+	void initialiseAngleErrorCovariances(Vector3f &rot_vec_var);
 
 	// perform a limited reset of the magnetic field related state covariances
 	void resetMagRelatedCovariances();
@@ -954,8 +953,8 @@ private:
 
 	void resetZDeltaAngBiasCov();
 
-	// uncorrelate quaternion states from other states
-	void uncorrelateQuatFromOtherStates();
+	// uncorrelate angle error states from other states
+	void uncorrelateAngleErrorFromOtherStates();
 
 	// calculate a synthetic value for the magnetometer Z component, given the 3D magnetomter
 	// sensor measurement

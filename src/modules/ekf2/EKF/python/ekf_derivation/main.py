@@ -564,7 +564,7 @@ def generate_code():
     # define the truth delta angle
     # ignore coning compensation as these effects are negligible in terms of
     # covariance growth for our application and grade of sensor
-    daxNoise, dayNoise, dazNoise = symbols("daxNoise, dayNoise, dazNoise", real=True)
+    daxNoise, dayNoise, dazNoise = symbols("daxVar, dayVar, dazVar", real=True)
     dAngTruth = dAngMeas - dAngBias - Matrix([daxNoise, dayNoise, dazNoise])
 
     # define the attitude update equations
@@ -583,7 +583,7 @@ def generate_code():
     # Define the truth delta velocity -ignore sculling and transport rate
     # corrections as these negligible are in terms of covariance growth for our
     # application and grade of sensor
-    dvxNoise, dvyNoise, dvzNoise = symbols("dvxNoise, dvyNoise, dvzNoise", real=True)
+    dvxNoise, dvyNoise, dvzNoise = symbols("dvxVar, dvyVar, dvzVar", real=True)
     dVelTruth = dVelMeas - dVelBias - Matrix([dvxNoise, dvyNoise, dvzNoise])
 
     # define the velocity update equations

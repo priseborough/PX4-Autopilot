@@ -116,14 +116,14 @@ void Ekf::fuseAirspeed()
 	_fault_status.flags.bad_airspeed = false;
 
 	// Observation Jacobians
-	SparseVector25f<4,5,6,22,23> Hfusion;
-	Hfusion.at<4>() = HK4;
-	Hfusion.at<5>() = HK5;
-	Hfusion.at<6>() = HK3*vd;
-	Hfusion.at<22>() = -HK4;
-	Hfusion.at<23>() = -HK5;
+	SparseVector24f<3,4,5,21,22> Hfusion;
+	Hfusion.at<3>() = HK4;
+	Hfusion.at<4>() = HK5;
+	Hfusion.at<5>() = HK3*vd;
+	Hfusion.at<21>() = -HK4;
+	Hfusion.at<22>() = -HK5;
 
-	Vector25f Kfusion; // Kalman gain vector
+	Vector24f Kfusion; // Kalman gain vector
 
 	if (!update_wind_only) {
 		// we have no other source of aiding, so use airspeed measurements to correct states

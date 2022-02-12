@@ -51,15 +51,15 @@
 class Ekf final : public EstimatorInterface
 {
 public:
-	static constexpr uint8_t _k_num_states{25};		///< number of EKF states
+	static constexpr uint8_t _k_num_states{24};		///< number of EKF states
 
-	typedef matrix::Vector<float, _k_num_states> Vector25f;
-	typedef matrix::SquareMatrix<float, _k_num_states> SquareMatrix25f;
+	typedef matrix::Vector<float, _k_num_states> Vector24f;
+	typedef matrix::SquareMatrix<float, _k_num_states> SquareMatrix24f;
 	typedef matrix::SquareMatrix<float, 2> Matrix2f;
 	typedef matrix::Vector<float, 4> Vector4f;
 	template<int ... Idxs>
 
-	using SparseVector25f = matrix::SparseVectorf<25, Idxs...>;
+	using SparseVector24f = matrix::SparseVectorf<24, Idxs...>;
 
 	Ekf() = default;
 	virtual ~Ekf() = default;

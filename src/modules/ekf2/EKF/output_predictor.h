@@ -134,10 +134,10 @@ private:
 
 	/*
 	* Calculate corrections to be applied to vel and pos output state history.
-	* The vel and pos state history are corrected individually so they track the EKF states at
+	* The quaternion, vel and pos state history are corrected individually so they track the EKF states at
 	* the fusion time horizon. This option provides the most accurate tracking of EKF states.
 	*/
-	void applyCorrectionToOutputBuffer(const matrix::Vector3f &vel_correction, const matrix::Vector3f &pos_correction);
+	void applyCorrectionToOutputBuffer(const matrix::Vector3f &ang_correction, const matrix::Vector3f &vel_correction, const matrix::Vector3f &pos_correction);
 
 	// return the square of two floating point numbers - used in auto coded sections
 	static constexpr float sq(float var) { return var * var; }
@@ -176,7 +176,6 @@ private:
 	matrix::Vector3f _vel_deriv{};		// velocity derivative at the IMU in NED earth frame (m/s/s)
 
 	// output predictor states
-	matrix::Vector3f _delta_angle_corr{};	///< delta angle correction vector (rad)
 	matrix::Vector3f _vel_err_integ{};	///< integral of velocity tracking error (m)
 	matrix::Vector3f _pos_err_integ{};	///< integral of position tracking error (m.s)
 

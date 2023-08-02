@@ -92,8 +92,6 @@ void OutputPredictor::reset()
 	_vel_imu_rel_body_ned.setZero();
 	_vel_deriv.setZero();
 
-	_delta_angle_corr.setZero();
-
 	_vel_err_integ.setZero();
 	_pos_err_integ.setZero();
 
@@ -179,7 +177,7 @@ void OutputPredictor::calculateOutputStates(const uint64_t time_us, const Vector
 	// correct delta angle and delta velocity for bias offsets
 	// Apply corrections to the delta angle required to track the quaternion states at the EKF fusion time horizon
 	const Vector3f delta_angle_bias_scaled = _gyro_bias * delta_angle_dt;
-	const Vector3f delta_angle_corrected(delta_angle - delta_angle_bias_scaled + _delta_angle_corr);
+	const Vector3f delta_angle_corrected(delta_angle - delta_angle_bias_scaled);
 
 	const Vector3f delta_vel_bias_scaled = _accel_bias * delta_velocity_dt;
 	const Vector3f delta_velocity_corrected(delta_velocity - delta_vel_bias_scaled);
@@ -272,17 +270,7 @@ void OutputPredictor::correctOutputStates(const uint64_t time_delayed_us,
 	const float scalar = (q_error(0) >= 0.0f) ? -2.f : 2.f;
 
 	const Vector3f delta_ang_error{scalar * q_error(1), scalar * q_error(2), scalar * q_error(3)};
-
-	// calculate a gain that provides tight tracking of the estimator attitude states and
-	// adjust for changes in time delay to maintain consistent damping ratio of ~0.7
-	const uint64_t time_latest_us = _time_last_update_states_us;
-	const float time_delay = fmaxf((time_latest_us - time_delayed_us) * 1e-6f, _dt_update_states_avg);
-	const float att_gain = 0.5f * _dt_update_states_avg / time_delay;
-
-	// calculate a corrrection to the delta angle
-	// that will cause the INS to track the EKF quaternions
-	_delta_angle_corr = delta_ang_error * att_gain;
-	_output_tracking_error(0) = delta_ang_error.norm();
+	_output_tracking_error(0) = 0.0f;
 
 	/*
 	* Loop through the output filter state history and apply the corrections to the velocity and position states.
@@ -320,7 +308,7 @@ void OutputPredictor::correctOutputStates(const uint64_t time_delayed_us,
 	_pos_err_integ += pos_err;
 	const Vector3f pos_correction = pos_err * pos_gain + _pos_err_integ * sq(pos_gain) * 0.1f;
 
-	applyCorrectionToOutputBuffer(vel_correction, pos_correction);
+	applyCorrectionToOutputBuffer(delta_ang_error, vel_correction, pos_correction);
 }
 
 void OutputPredictor::applyCorrectionToVerticalOutputBuffer(float vert_vel_correction)
@@ -357,10 +345,15 @@ void OutputPredictor::applyCorrectionToVerticalOutputBuffer(float vert_vel_corre
 	_output_vert_new.dt = 0.0f;
 }
 
-void OutputPredictor::applyCorrectionToOutputBuffer(const Vector3f &vel_correction, const Vector3f &pos_correction)
+void OutputPredictor::applyCorrectionToOutputBuffer(const Vector3f &ang_correction, const Vector3f &vel_correction, const Vector3f &pos_correction)
 {
-	// loop through the output filter state history and apply the corrections to the velocity and position states
+	const Quatf dq(AxisAnglef{ang_correction});
+
+	// loop through the output filter state history and apply the corrections to the quaternion, velocity and position states
 	for (uint8_t index = 0; index < _output_buffer.get_length(); index++) {
+		// a constant angular correction is applied
+		_output_buffer[index].quat_nominal = _output_buffer[index].quat_nominal * dq;
+
 		// a constant velocity correction is applied
 		_output_buffer[index].vel += vel_correction;
 

@@ -47,8 +47,8 @@ VehicleAngularVelocity::VehicleAngularVelocity() :
 {
 	_lp_filter_velocity.set_cutoff_frequency(kInitialRateHz, _param_imu_gyro_cutoff.get());
 	_notch_filter_velocity.setParameters(kInitialRateHz, _param_imu_gyro_nf_freq.get(), _param_imu_gyro_nf_bw.get());
+	_lp_filter_acceleration.reset(matrix::Vector3f(0,0,0));
 
-	_lp_filter_acceleration.set_cutoff_frequency(kInitialRateHz, _param_imu_dgyro_cutoff.get());
 }
 
 VehicleAngularVelocity::~VehicleAngularVelocity()
@@ -92,11 +92,12 @@ void VehicleAngularVelocity::CheckFilters()
 		bool reset_filters = false;
 
 		// calculate sensor update rate
-		const float sample_interval_avg = _interval_sum / _interval_count;
+		_sample_interval_avg = _interval_sum / _interval_count;
 
-		if (PX4_ISFINITE(sample_interval_avg) && (sample_interval_avg > 0.0f)) {
+		if (PX4_ISFINITE(_sample_interval_avg) && (_sample_interval_avg > 0.0f)) {
 
-			_update_rate_hz = 1.e6f / sample_interval_avg;
+			_update_rate_hz = 1.e6f / _sample_interval_avg;
+
 
 			// check if sample rate error is greater than 1%
 			if ((fabsf(_update_rate_hz - _filter_sample_rate) / _filter_sample_rate) > 0.01f) {
@@ -107,7 +108,7 @@ void VehicleAngularVelocity::CheckFilters()
 				if (_param_imu_gyro_rate_max.get() > 0) {
 					// determine number of sensor samples that will get closest to the desired rate
 					const float configured_interval_us = 1e6f / _param_imu_gyro_rate_max.get();
-					const uint8_t samples = math::constrain(roundf(configured_interval_us / sample_interval_avg), 1.f,
+					const uint8_t samples = math::constrain(roundf(configured_interval_us / _sample_interval_avg), 1.f,
 										(float)sensor_gyro_s::ORB_QUEUE_LENGTH);
 
 					_sensor_sub[_selected_sensor_sub_index].set_required_updates(samples);
@@ -131,11 +132,6 @@ void VehicleAngularVelocity::CheckFilters()
 			    || (fabsf(_notch_filter_velocity.getBandwidth() - _param_imu_gyro_nf_bw.get()) > 0.01f)) {
 				reset_filters = true;
 			}
-
-			// gyro derivative low pass cutoff changed
-			if (fabsf(_lp_filter_acceleration.get_cutoff_freq() - _param_imu_dgyro_cutoff.get()) > 0.01f) {
-				reset_filters = true;
-			}
 		}
 
 		if (reset_filters) {
@@ -148,9 +144,6 @@ void VehicleAngularVelocity::CheckFilters()
 
 			_notch_filter_velocity.setParameters(_filter_sample_rate, _param_imu_gyro_nf_freq.get(), _param_imu_gyro_nf_bw.get());
 			_notch_filter_velocity.reset(_angular_velocity_prev);
-
-			_lp_filter_acceleration.set_cutoff_frequency(_filter_sample_rate, _param_imu_dgyro_cutoff.get());
-			_lp_filter_acceleration.reset(_angular_acceleration_prev);
 		}
 
 		// reset sample interval accumulator
@@ -293,7 +286,15 @@ void VehicleAngularVelocity::Run()
 			const Vector3f angular_acceleration_raw = (angular_velocity - _angular_velocity_prev) / dt;
 			_angular_velocity_prev = angular_velocity;
 			_angular_acceleration_prev = angular_acceleration_raw;
-			const Vector3f angular_acceleration{_lp_filter_acceleration.apply(angular_acceleration_raw)};
+
+			if (_param_imu_dgyro_cutoff.get() > 0 && PX4_ISFINITE(_sample_interval_avg) && (_sample_interval_avg > 0.0f)) {
+				const float tconst = 1.0f / (M_TWOPI_F * _param_imu_dgyro_cutoff.get());
+				_lp_filter_acceleration.setParameters(_sample_interval_avg, tconst);
+			} else {
+				_lp_filter_acceleration.setAlpha(1.0f);
+			}
+			_lp_filter_acceleration.update(angular_acceleration_raw);
+			Vector3f angular_acceleration = _lp_filter_acceleration.getState();
 
 			CheckFilters();
 

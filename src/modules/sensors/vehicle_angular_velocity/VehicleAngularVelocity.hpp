@@ -39,6 +39,7 @@
 #include <lib/matrix/matrix/math.hpp>
 #include <lib/mathlib/math/filter/LowPassFilter2pVector3f.hpp>
 #include <lib/mathlib/math/filter/NotchFilter.hpp>
+#include <lib/ecl/AlphaFilter/AlphaFilter.hpp>
 #include <px4_platform_common/log.h>
 #include <px4_platform_common/module_params.h>
 #include <px4_platform_common/px4_config.h>
@@ -102,6 +103,7 @@ private:
 	hrt_abstime _last_publish{0};
 	static constexpr const float kInitialRateHz{1000.0f}; /**< sensor update rate used for initialization */
 	float _update_rate_hz{kInitialRateHz}; /**< current rate-controller loop update rate in [Hz] */
+	float _sample_interval_avg{0.001f};
 
 	uint8_t _required_sample_updates{0}; /**< number or sensor publications required for configured rate */
 
@@ -110,7 +112,7 @@ private:
 	math::NotchFilter<matrix::Vector3f> _notch_filter_velocity{};
 
 	// angular acceleration filter
-	math::LowPassFilter2pVector3f _lp_filter_acceleration{kInitialRateHz, 30.0f};
+	AlphaFilter<matrix::Vector3f> _lp_filter_acceleration {};
 
 	float _filter_sample_rate{kInitialRateHz};
 
